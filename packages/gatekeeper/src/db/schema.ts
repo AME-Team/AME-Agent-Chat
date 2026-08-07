@@ -62,10 +62,11 @@ export const approvalRequests = sqliteTable('approval_requests', {
   decidedAt: integer('decided_at'),
 });
 
-/** トークン使用実績 (要件 #1 §5 token_usages) — #27 Check Usage で活性化 */
+/** トークン使用実績 (要件 #1 §5 token_usages) — #27 Check Usage で活性化
+ *  sessionId は任意の文脈情報 (OpenCode セッションと異なるため FK は張らない) */
 export const tokenUsages = sqliteTable('token_usages', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  sessionId: text('session_id').references(() => sessions.id, { onDelete: 'set null' }),
+  sessionId: text('session_id'),
   provider: text('provider').notNull(),
   model: text('model').notNull(),
   inputTokens: integer('input_tokens').notNull().default(0),

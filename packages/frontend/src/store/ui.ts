@@ -28,6 +28,8 @@ interface UIState {
   settingsOpen: boolean;
   approvalHistoryOpen: boolean;
   authOpen: boolean;
+  usageOpen: boolean;
+  preview: { type: 'markdown' | 'image'; content: string } | null;
   showThinking: boolean;
   showDetails: boolean;
   /** 複数リクエストの逐次処理のためキュー化 (上書き防止) */
@@ -38,6 +40,8 @@ interface UIState {
   setSettingsOpen: (open: boolean) => void;
   setApprovalHistoryOpen: (open: boolean) => void;
   setAuthOpen: (open: boolean) => void;
+  setUsageOpen: (open: boolean) => void;
+  setPreview: (p: UIState['preview']) => void;
   toggleThinking: () => void;
   toggleDetails: () => void;
   enqueuePermission: (p: PendingPermission) => void;
@@ -50,6 +54,8 @@ export const useUI = create<UIState>((set) => ({
   settingsOpen: false,
   approvalHistoryOpen: false,
   authOpen: false,
+  usageOpen: false,
+  preview: null,
   showThinking: true,
   showDetails: false,
   pendingPermissions: [],
@@ -65,6 +71,8 @@ export const useUI = create<UIState>((set) => ({
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setApprovalHistoryOpen: (open) => set({ approvalHistoryOpen: open }),
   setAuthOpen: (open) => set({ authOpen: open }),
+  setUsageOpen: (open) => set({ usageOpen: open }),
+  setPreview: (preview) => set({ preview }),
   toggleThinking: () => set((st) => ({ showThinking: !st.showThinking })),
   toggleDetails: () => set((st) => ({ showDetails: !st.showDetails })),
   enqueuePermission: (p) =>

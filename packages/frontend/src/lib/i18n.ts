@@ -102,6 +102,12 @@ const ja: Dict = {
   'bash.failed': '実行に失敗しました',
   'chat.attachTooLarge': '添付ファイルが大きすぎます（上限 5MB）',
   'chat.attachLimit': '添付は最大 4 件です',
+  'usage.title': '使用量',
+  'usage.total': '合計',
+  'usage.empty': '使用量の記録がありません',
+  'preview.title': 'プレビュー',
+  'preview.open': 'プレビュー',
+  'message.edit': '編集して再生成',
 };
 
 const en: Dict = {
@@ -199,6 +205,12 @@ const en: Dict = {
   'bash.failed': 'Execution failed',
   'chat.attachTooLarge': 'Attachment too large (max 5MB)',
   'chat.attachLimit': 'Max 4 attachments',
+  'usage.title': 'Usage',
+  'usage.total': 'Total',
+  'usage.empty': 'No usage records',
+  'preview.title': 'Preview',
+  'preview.open': 'Preview',
+  'message.edit': 'Edit & regenerate',
 };
 
 const DICTS: Record<Locale, Dict> = { ja, en };

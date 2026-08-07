@@ -13,6 +13,8 @@ export interface AppMessage {
   text: string;
   /** 推論プロセス(思考ブロック)。/thinking で表示切替 (#2 §5) */
   reasoning?: string;
+  /** 親メッセージID (編集再生成 #21 で使用) */
+  parentID?: string;
   providerID?: string;
   modelID?: string;
   streaming?: boolean;
@@ -69,6 +71,8 @@ interface AppState {
   tools: ToolEvent[];
   loadMessages: (id: string) => Promise<void>;
   sendMessage: (text: string, attachments?: Attachment[]) => Promise<void>;
+  /** メッセージ編集 → 以降を上書きで再生成 (要件 #2 §4.4) */
+  editMessage: (messageId: string, newText: string) => Promise<void>;
   abort: () => Promise<void>;
   applySSE: (event: string, properties: unknown) => void;
   clearMessages: () => void;
@@ -82,6 +86,7 @@ interface OCMessageEntry {
   info: {
     id: string;
     role: 'user' | 'assistant' | 'system';
+    parentID?: string;
     providerID?: string;
     modelID?: string;
   };
@@ -209,6 +214,7 @@ export const useApp = create<AppState>((set, get) => ({
         role: e.info.role,
         text: partsToText(e.parts),
         reasoning: partsToReasoning(e.parts) || undefined,
+        parentID: e.info.parentID,
         providerID: e.info.providerID,
         modelID: e.info.modelID,
       }));
@@ -279,6 +285,28 @@ export const useApp = create<AppState>((set, get) => ({
     const id = get().currentId;
     if (id) await api.messages.abort(id);
     set({ busy: false });
+  },
+
+  editMessage: async (messageId, newText) => {
+    const { currentId, messages } = get();
+    if (!currentId) return;
+    const target = messages.find((m) => m.id === messageId);
+    if (!target || target.role !== 'user') return;
+    const parentId = target.parentID;
+    if (parentId) {
+      // 編集メッセージの親まで revert → 編集内容を再送 (以降を上書き再生成 #2 §4.4)
+      try {
+        await api.messages.revert(currentId, parentId);
+      } catch {
+        /* revert 失敗時は再送のみ */
+      }
+    }
+    // 編集メッセージ以降を切り捨てて新しい内容を送信
+    const idx = messages.findIndex((m) => m.id === messageId);
+    set((st) => ({ messages: [...st.messages.slice(0, idx), { ...target, text: newText }] }));
+    await api.messages.send(currentId, newText);
+    // バックエンドと状態を再同期 (revert 不可のケースでも旧メッセージが復活しないように)
+    await get().loadMessages(currentId);
   },
 
   applySSE: (event, properties) => {

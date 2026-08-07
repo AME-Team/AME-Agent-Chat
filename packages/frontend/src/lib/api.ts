@@ -139,4 +139,26 @@ export const api = {
     put: (body: Record<string, string>) =>
       request<{ ok: boolean }>('/api/settings', { method: 'PUT', body: JSON.stringify(body) }),
   },
+
+  usage: {
+    /** トークン使用量・コスト (#27, #1 §3.2.5) */
+    get: () =>
+      request<
+        Array<{
+          provider: string;
+          model: string;
+          inputTokens: number;
+          outputTokens: number;
+          cost: number;
+        }>
+      >('/api/usage'),
+  },
+
+  ogp: {
+    /** OGP リンクプレビュー (#2 §4.2) */
+    get: (url: string) =>
+      request<{ url: string; title?: string; description?: string; image?: string }>(
+        `/api/ogp?url=${encodeURIComponent(url)}`,
+      ),
+  },
 };

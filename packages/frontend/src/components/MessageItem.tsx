@@ -2,13 +2,14 @@
  * メッセージ表示 (要件 #2 §4.1, §4.2, §4.4)
  * Streaming カーソル / 担当モデル表示 / ロール区別 / ピン留め / 長文折りたたみ / コピー。
  */
-import { Check, ChevronDown, Copy, Pin, PinOff } from 'lucide-react';
-import { useState } from 'react';
+import { Check, ChevronDown, Copy, Eye, Pencil, Pin, PinOff } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useI18n } from '../lib/i18n';
 import { cn } from '../lib/cn';
+import { useApp, type AppMessage } from '../store/app';
 import { useUI } from '../store/ui';
-import type { AppMessage } from '../store/app';
 import { Markdown } from './Markdown';
+import { LinkPreview } from './LinkPreview';
 
 const PIN_KEY = 'msgPin';
 const COLLAPSE_LIMIT = 1500;
@@ -31,9 +32,17 @@ export function MessageItem({ message }: { message: AppMessage }) {
   const [showReasoning, setShowReasoning] = useState(false);
   const [pinned, setPinned] = useState(() => isPinned(message.id));
   const [collapsed, setCollapsed] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(message.text);
   const isUser = message.role === 'user';
   const isLong = message.text.length > COLLAPSE_LIMIT;
   const text = collapsed && isLong ? `${message.text.slice(0, COLLAPSE_LIMIT)}…` : message.text;
+
+  // OGP リンクプレビュー対象の URL 抽出 (#2 §4.2)
+  const linkUrls = useMemo(() => {
+    if (isUser) return [];
+    return [...message.text.matchAll(/https?:\/\/[^\s)）]+/g)].map((m) => m[0]).slice(0, 2);
+  }, [message.text, isUser]);
 
   const copy = async () => {
     try {
@@ -49,6 +58,17 @@ export function MessageItem({ message }: { message: AppMessage }) {
     const next = pinned ? loadPins().filter((x) => x !== message.id) : [...loadPins(), message.id];
     localStorage.setItem(PIN_KEY, JSON.stringify(next));
     setPinned(!pinned);
+  };
+
+  const saveEdit = async () => {
+    if (editValue.trim() && editValue.trim() !== message.text) {
+      await useApp.getState().editMessage(message.id, editValue.trim());
+    }
+    setEditing(false);
+  };
+
+  const openPreview = () => {
+    useUI.getState().setPreview({ type: 'markdown', content: message.text });
   };
 
   return (
@@ -99,7 +119,22 @@ export function MessageItem({ message }: { message: AppMessage }) {
             pinned && 'ring-1 ring-primary/50',
           )}
         >
-          {isUser ? (
+          {isUser && editing ? (
+            <textarea
+              autoFocus
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.shiftKey) return;
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void saveEdit();
+                }
+                if (e.key === 'Escape') setEditing(false);
+              }}
+              className="w-full min-h-[60px] resize-none rounded bg-white/20 px-2 py-1 outline-none"
+            />
+          ) : isUser ? (
             <span className="whitespace-pre-wrap break-words">
               {text}
               {message.streaming && <span className="ml-0.5 inline-block animate-pulse">▍</span>}
@@ -111,6 +146,13 @@ export function MessageItem({ message }: { message: AppMessage }) {
             </div>
           )}
         </div>
+        {!isUser && linkUrls.length > 0 && (
+          <div className="flex flex-col gap-1">
+            {linkUrls.map((u) => (
+              <LinkPreview key={u} url={u} />
+            ))}
+          </div>
+        )}
         {isLong && (
           <button
             type="button"
@@ -122,6 +164,30 @@ export function MessageItem({ message }: { message: AppMessage }) {
         )}
         {!message.streaming && message.text && (
           <div className="flex items-center gap-2">
+            {isUser && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(true);
+                  setEditValue(message.text);
+                }}
+                aria-label={t('message.edit')}
+                className="flex items-center gap-1 text-xs text-gray-400 transition-colors duration-150 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <Pencil className="size-3" />
+              </button>
+            )}
+            {!isUser && (
+              <button
+                type="button"
+                onClick={openPreview}
+                aria-label={t('preview.open')}
+                className="flex items-center gap-1 text-xs text-gray-400 transition-colors duration-150 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <Eye className="size-3" />
+                {t('preview.open')}
+              </button>
+            )}
             <button
               type="button"
               onClick={togglePin}
