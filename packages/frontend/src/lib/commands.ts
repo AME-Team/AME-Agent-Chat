@@ -13,17 +13,17 @@ import type { Theme } from '@ame-agent-chat/shared';
 export { SLASH_COMMANDS };
 export type { SlashCommand };
 
-/** 現在 locale で翻訳(プレースホルダ {key} 補間) — ame-ui-philosophy §8 */
+/** 現在 locale で翻訳(プレースホルダ補間は translate に統一) — ame-ui-philosophy §8 */
 function tr(key: string, vars?: Record<string, string>): string {
-  const s = translate(useApp.getState().locale, key);
-  return vars ? s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '') : s;
+  return translate(useApp.getState().locale, key, vars);
 }
 
-/** 入力がコマンドか。`/` 始まりで第1トークを返す */
+/** 入力がコマンドか。`/` 始まりで第1トークを返す(`/` 単独は null) */
 export function parseCommand(input: string): { name: string; args: string } | null {
   const trimmed = input.trim();
   if (!trimmed.startsWith('/')) return null;
   const [name, ...rest] = trimmed.slice(1).split(/\s+/);
+  if (!name) return null;
   return { name: `/${name}`, args: rest.join(' ') };
 }
 
@@ -39,8 +39,10 @@ export function matchCommands(query: string): SlashCommand[] {
 function exportMarkdown() {
   const { messages, sessions, currentId } = useApp.getState();
   const session = sessions.find((s) => s.id === currentId);
+  const title = session?.title ?? 'session';
+  const safeName = title.replace(/[\\/:*?"<>|]/g, '').trim() || 'session';
   const md = [
-    `# ${session?.title ?? 'Session'}`,
+    `# ${title}`,
     '',
     ...messages.map(
       (m) => `**${m.role}**${m.modelID ? ` (${m.providerID}/${m.modelID})` : ''}\n\n${m.text}\n`,
@@ -50,7 +52,7 @@ function exportMarkdown() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${session?.title ?? 'session'}.md`;
+  a.download = `${safeName}.md`;
   a.click();
   URL.revokeObjectURL(url);
 }

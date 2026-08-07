@@ -3,14 +3,29 @@
  * コマンド一覧 + ショートカットキーを表示。
  */
 import { X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { useI18n } from '../lib/i18n';
 import { useUI } from '../store/ui';
 import { SLASH_COMMANDS } from '../lib/commands';
+
+const TITLE_ID = 'help-dialog-title';
 
 export function HelpDialog() {
   const { t } = useI18n();
   const open = useUI((s) => s.helpOpen);
   const setOpen = useUI((s) => s.setHelpOpen);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  // Escape で閉じる + 初期フォーカス (WCAG 2.1 AA: AGENTS.md §)
+  useEffect(() => {
+    if (!open) return;
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, setOpen]);
 
   const shortcuts: Array<{ key: string; desc: string }> = [
     { key: 'Enter', desc: t('shortcut.send') },
@@ -31,10 +46,14 @@ export function HelpDialog() {
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal
+        aria-labelledby={TITLE_ID}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">{t('header.help')}</h2>
+          <h2 id={TITLE_ID} className="text-lg font-bold">
+            {t('header.help')}
+          </h2>
           <button
+            ref={closeRef}
             type="button"
             onClick={() => setOpen(false)}
             aria-label="close"

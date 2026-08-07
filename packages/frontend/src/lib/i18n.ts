@@ -75,7 +75,7 @@ const DICTS: Record<Locale, Dict> = { ja, en };
 
 export interface I18n {
   locale: Locale;
-  t: (key: string) => string;
+  t: (key: string, vars?: Record<string, string>) => string;
 }
 
 export const I18nContext = createContext<I18n>({ locale: 'ja', t: (k) => k });
@@ -84,6 +84,8 @@ export function useI18n(): I18n {
   return useContext(I18nContext);
 }
 
-export function translate(locale: Locale, key: string): string {
-  return DICTS[locale][key] ?? DICTS.ja[key] ?? key;
+/** プレースホルダ `{key}` を補間して翻訳 (共通ユーティリティ) */
+export function translate(locale: Locale, key: string, vars?: Record<string, string>): string {
+  const raw = DICTS[locale][key] ?? DICTS.ja[key] ?? key;
+  return vars ? raw.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '') : raw;
 }

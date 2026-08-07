@@ -10,6 +10,8 @@ export interface AppMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   text: string;
+  /** 推論プロセス(思考ブロック)。/thinking で表示切替 (#2 §5) */
+  reasoning?: string;
   providerID?: string;
   modelID?: string;
   streaming?: boolean;
@@ -62,7 +64,14 @@ interface OCMessageEntry {
 
 function partsToText(parts: OCPart[] | undefined): string {
   return (parts ?? [])
-    .filter((p) => p.type === 'text' || p.type === 'reasoning')
+    .filter((p) => p.type === 'text')
+    .map((p) => p.text ?? '')
+    .join('');
+}
+
+function partsToReasoning(parts: OCPart[] | undefined): string {
+  return (parts ?? [])
+    .filter((p) => p.type === 'reasoning')
     .map((p) => p.text ?? '')
     .join('');
 }
@@ -136,6 +145,7 @@ export const useApp = create<AppState>((set, get) => ({
         id: e.info.id,
         role: e.info.role,
         text: partsToText(e.parts),
+        reasoning: partsToReasoning(e.parts) || undefined,
         providerID: e.info.providerID,
         modelID: e.info.modelID,
       }));
@@ -200,14 +210,25 @@ export const useApp = create<AppState>((set, get) => ({
       if (!part || !part.messageID) return;
       if (part.type !== 'text' && part.type !== 'reasoning') return;
       if (knownUserIds.has(part.messageID)) return;
-      const text = part.text ?? '';
+      const isReasoning = part.type === 'reasoning';
+      const value = part.text ?? '';
       set((st) => {
         const exists = st.messages.some((m) => m.id === part.messageID);
         const messages = exists
-          ? st.messages.map((m) => (m.id === part.messageID ? { ...m, text, streaming: true } : m))
+          ? st.messages.map((m) =>
+              m.id === part.messageID
+                ? { ...m, [isReasoning ? 'reasoning' : 'text']: value, streaming: true }
+                : m,
+            )
           : [
               ...st.messages,
-              { id: part.messageID, role: 'assistant' as const, text, streaming: true },
+              {
+                id: part.messageID,
+                role: 'assistant' as const,
+                text: isReasoning ? '' : value,
+                reasoning: isReasoning ? value : undefined,
+                streaming: true,
+              },
             ];
         return { messages };
       });
