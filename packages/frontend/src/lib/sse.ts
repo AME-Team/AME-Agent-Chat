@@ -23,9 +23,12 @@ export function connectEvents(): void {
           sessionID?: string;
           pattern?: string;
           title?: string;
+          __autoHandled?: boolean;
+          __policy?: string;
         };
-        // 承認ダイアログへ (要件 #2 §7)
-        useUI.getState().setPendingPermission({
+        // ポリシーで自動処理された(allow/deny)イベントはダイアログを出さない (#13)
+        if (p.__autoHandled) return;
+        useUI.getState().enqueuePermission({
           id: p.id,
           sessionId: p.sessionID ?? p.sessionId,
           type: p.type,
@@ -33,6 +36,7 @@ export function connectEvents(): void {
           command: p.command,
           description: p.description,
           title: p.title,
+          policy: p.policy ?? p.__policy,
         });
         return;
       }

@@ -9,8 +9,9 @@
  */
 import type { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
+import type { Event, Permission } from '@opencode-ai/sdk';
 import { getOpencodeClient } from '../opencode.js';
-import { registerPermission } from './permissions.js';
+import { enforcePermission } from './permissions.js';
 
 export function registerEventRoutes(app: Hono): void {
   const api = getOpencodeClient();
@@ -30,13 +31,20 @@ export function registerEventRoutes(app: Hono): void {
         const result = await api.event.subscribe();
         for await (const event of result.stream) {
           if (aborted) break;
-          // 承認フロー: permission.updated を Gatekeeper へ登録 (ポリシー判定・監査)
+          let data: unknown = event.properties;
+
+          // 承認フロー: ポリシー判定を実効化し、UI 表示が必要な場合のみ policy 情報を付与 (#2 §7)
           if (event.type === 'permission.updated') {
-            void registerPermission(event.properties as never);
+            const permission = (event as Extract<Event, { type: 'permission.updated' }>).properties;
+            const { show, action } = await enforcePermission(permission as Permission);
+            data = show
+              ? { ...(permission as unknown as Record<string, unknown>), __policy: action }
+              : { ...(permission as unknown as Record<string, unknown>), __autoHandled: true };
           }
+
           await stream.writeSSE({
             event: event.type,
-            data: JSON.stringify(event.properties),
+            data: JSON.stringify(data),
           });
         }
       } catch {

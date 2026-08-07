@@ -81,10 +81,10 @@ export const api = {
 
   permissions: {
     /** 承認/拒否/ホワイトリスト化 (#2 §7.2) */
-    decide: (id: string, approved: boolean, whitelist: boolean) =>
+    decide: (id: string, approved: boolean, whitelist: boolean, sessionId: string) =>
       request<{ ok: boolean; response: string }>(`/api/permissions/${id}/decision`, {
         method: 'POST',
-        body: JSON.stringify({ approved, whitelist }),
+        body: JSON.stringify({ approved, whitelist, sessionId }),
       }),
   },
 };

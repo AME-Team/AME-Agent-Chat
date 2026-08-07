@@ -27,34 +27,36 @@ export interface ApprovalInput {
 export function createApprovalRepo(db: Db) {
   return {
     async create(input: ApprovalInput): Promise<ApprovalRow> {
-      const row = {
-        id: input.id,
-        sessionId: input.sessionId,
-        messageId: input.messageId,
-        permissionId: input.permissionId,
-        type: input.type,
-        path: input.path,
-        command: input.command,
-        description: input.description ?? '',
-        policy: input.policy,
-        policyReason: input.policyReason,
-        status: 'pending' as const,
-        createdAt: Date.now(),
-        decidedAt: null,
-      };
       await db
         .insert(approvalRequests)
-        .values(row)
+        .values({
+          id: input.id,
+          sessionId: input.sessionId,
+          messageId: input.messageId,
+          permissionId: input.permissionId,
+          type: input.type,
+          path: input.path,
+          command: input.command,
+          description: input.description ?? '',
+          policy: input.policy,
+          policyReason: input.policyReason,
+          status: 'pending',
+          createdAt: Date.now(),
+          decidedAt: null,
+        })
         .onConflictDoUpdate({
           target: approvalRequests.id,
           set: {
-            type: row.type,
-            path: row.path,
-            command: row.command,
-            description: row.description,
+            type: input.type,
+            path: input.path,
+            command: input.command,
+            description: input.description ?? '',
           },
         });
-      return row as ApprovalRow;
+      // GET と同一スキーマ (snake_case) の行を返す
+      const row = await this.get(input.id);
+      if (!row) throw new Error('approval insert failed');
+      return row;
     },
 
     async listByStatus(status?: ApprovalStatus): Promise<ApprovalRow[]> {

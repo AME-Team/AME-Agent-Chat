@@ -19,25 +19,28 @@ export interface PendingPermission {
   command?: string;
   description?: string;
   title?: string;
+  policy?: string;
 }
 
 interface UIState {
   toasts: Toast[];
   helpOpen: boolean;
   showThinking: boolean;
-  pendingPermission: PendingPermission | null;
+  /** 複数リクエストの逐次処理のためキュー化 (上書き防止) */
+  pendingPermissions: PendingPermission[];
   pushToast: (message: string, tone?: Toast['tone']) => void;
   dismissToast: (id: string) => void;
   setHelpOpen: (open: boolean) => void;
   toggleThinking: () => void;
-  setPendingPermission: (p: PendingPermission | null) => void;
+  enqueuePermission: (p: PendingPermission) => void;
+  removePermission: (id: string) => void;
 }
 
 export const useUI = create<UIState>((set) => ({
   toasts: [],
   helpOpen: false,
   showThinking: true,
-  pendingPermission: null,
+  pendingPermissions: [],
   pushToast: (message, tone = 'info') => {
     const id = `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     set((st) => ({ toasts: [...st.toasts, { id, message, tone }] }));
@@ -48,5 +51,12 @@ export const useUI = create<UIState>((set) => ({
   dismissToast: (id) => set((st) => ({ toasts: st.toasts.filter((t) => t.id !== id) })),
   setHelpOpen: (open) => set({ helpOpen: open }),
   toggleThinking: () => set((st) => ({ showThinking: !st.showThinking })),
-  setPendingPermission: (p) => set({ pendingPermission: p }),
+  enqueuePermission: (p) =>
+    set((st) =>
+      st.pendingPermissions.some((x) => x.id === p.id)
+        ? st
+        : { pendingPermissions: [...st.pendingPermissions, p] },
+    ),
+  removePermission: (id) =>
+    set((st) => ({ pendingPermissions: st.pendingPermissions.filter((x) => x.id !== id) })),
 }));

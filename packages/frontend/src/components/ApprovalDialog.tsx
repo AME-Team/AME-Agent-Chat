@@ -10,16 +10,18 @@ import { api } from '../lib/api';
 
 export function ApprovalDialog() {
   const { t } = useI18n();
-  const p = useUI((s) => s.pendingPermission);
-  const setPending = useUI((s) => s.setPendingPermission);
+  const pending = useUI((s) => s.pendingPermissions);
+  const remove = useUI((s) => s.removePermission);
   const pushToast = useUI((s) => s.pushToast);
+
+  const p = pending[0];
 
   if (!p) return null;
 
-  const deny = p.type === 'execute';
+  const deny = p.policy === 'deny';
   const decide = async (approved: boolean, whitelist: boolean) => {
     try {
-      await api.permissions.decide(p.id, approved, whitelist);
+      await api.permissions.decide(p.id, approved, whitelist, p.sessionId);
       pushToast(
         approved
           ? whitelist
@@ -31,7 +33,7 @@ export function ApprovalDialog() {
     } catch {
       pushToast(t('approval.failed'), 'error');
     }
-    setPending(null);
+    remove(p.id);
   };
 
   return (
