@@ -2,15 +2,18 @@
  * メッセージ表示 (要件 #2 §4.1, §4.2)
  * Streaming カーソル / 担当モデル表示 / ロール区別。
  */
-import { Check, Copy } from 'lucide-react';
+import { Check, ChevronDown, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '../lib/i18n';
 import { cn } from '../lib/cn';
+import { useUI } from '../store/ui';
 import type { AppMessage } from '../store/app';
 
 export function MessageItem({ message }: { message: AppMessage }) {
   const { t } = useI18n();
+  const showThinking = useUI((s) => s.showThinking);
   const [copied, setCopied] = useState(false);
+  const [showReasoning, setShowReasoning] = useState(false);
   const isUser = message.role === 'user';
 
   const copy = async () => {
@@ -37,6 +40,26 @@ export function MessageItem({ message }: { message: AppMessage }) {
           <span className="text-xs text-gray-400">
             {message.providerID} / {message.modelID}
           </span>
+        )}
+        {showThinking && message.reasoning && !isUser && (
+          <div className="w-full">
+            <button
+              type="button"
+              onClick={() => setShowReasoning((v) => !v)}
+              className="flex items-center gap-1 text-xs text-gray-400 transition-colors duration-150 hover:text-gray-600 dark:hover:text-gray-300"
+              aria-expanded={showReasoning}
+            >
+              <ChevronDown
+                className={cn('size-3 transition-transform', showReasoning && 'rotate-180')}
+              />
+              思考プロセス
+            </button>
+            {showReasoning && (
+              <p className="mt-1 whitespace-pre-wrap break-words rounded-md bg-gray-50 p-2 text-xs text-gray-500 dark:bg-gray-900/50 dark:text-gray-400">
+                {message.reasoning}
+              </p>
+            )}
+          </div>
         )}
         <div
           className={cn(

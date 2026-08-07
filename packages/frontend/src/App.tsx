@@ -7,6 +7,8 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { ChatView } from './components/ChatView';
 import { MessageInput } from './components/MessageInput';
+import { Toasts } from './components/Toasts';
+import { HelpDialog } from './components/HelpDialog';
 import { useApp } from './store/app';
 import { connectEvents, disconnectEvents } from './lib/sse';
 
@@ -27,6 +29,8 @@ export function App() {
         <ChatView />
         <MessageInput />
       </div>
+      <Toasts />
+      <HelpDialog />
     </div>
   );
 }
