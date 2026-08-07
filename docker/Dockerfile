@@ -38,7 +38,7 @@ WORKDIR /workspace
 ENV PORT=30010 \
     HOST=0.0.0.0 \
     OPENCODE_BASE_URL=http://localhost:40960 \
-    GATEKEEPER_URL=http://host.docker.internal:87880 \
+    GATEKEEPER_URL=http://host.docker.internal:58780 \
     CORS_ORIGIN=http://localhost:51730
 
 EXPOSE 30010

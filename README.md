@@ -10,7 +10,7 @@ pnpm workspace モノレポ。
 | --------------------- | ------------------------------------------------- | ------ |
 | `packages/frontend`   | React PWA（Vite + React + shadcn/ui）             | 51730  |
 | `packages/agent-core` | BFF（Hono）・OpenCode SDK 接続・LLM ルーター      | 30010  |
-| `packages/gatekeeper` | ファイル I/O 制御・承認フロー（Hono + SQLite）    | 87880  |
+| `packages/gatekeeper` | ファイル I/O 制御・承認フロー（Hono + SQLite）    | 58780  |
 | `packages/shared`     | 共通型定義                                        | —      |
 | `docker/`             | コンテナ定義（Agent Core + OpenCode Server 同居） | —      |
 
@@ -30,7 +30,7 @@ pnpm dev          # 全パッケージ並列起動
 
 ### Docker（Agent Core + OpenCode をコンテナで同居起動）
 
-Frontend(51730) と Gatekeeper(87880) はホスト側で起動し、コンテナ内では Agent Core(30010・公開) と OpenCode Server(40960・非公開) が同居します（要件 #1 §2.4）。
+Frontend(51730) と Gatekeeper(58780) はホスト側で起動し、コンテナ内では Agent Core(30010・公開) と OpenCode Server(40960・非公開) が同居します（要件 #1 §2.4）。
 
 ```bash
 # ホストワークスペースを /workspace へ bind mount (既定はカレントディレクトリ)

@@ -13,7 +13,7 @@ pnpm workspace モノレポ。要件は GitHub Issue #1（統合要件書）/ #2
 | ---------------------------- | --------------------- | ------------------------------------------------------------ |
 | `@ame-agent-chat/shared`     | `packages/shared`     | 共通型定義（Tier/Effort/Session/SSE/Command 等）             |
 | `@ame-agent-chat/agent-core` | `packages/agent-core` | BFF（Hono）・LLM ルーター・OpenCode SDK 接続（ポート 30010） |
-| `@ame-agent-chat/gatekeeper` | `packages/gatekeeper` | ファイル I/O 制御・承認フロー（Hono+SQLite・ポート 87880）   |
+| `@ame-agent-chat/gatekeeper` | `packages/gatekeeper` | ファイル I/O 制御・承認フロー（Hono+SQLite・ポート 58780）   |
 | `@ame-agent-chat/frontend`   | `packages/frontend`   | React PWA（Vite・ポート 51730）                              |
 
 ## 主要コマンド
@@ -40,16 +40,16 @@ docker compose logs -f agent                         # ログ
 docker compose down                                  # 停止
 ```
 
-Frontend(51730)/Gatekeeper(87880) はホスト起動。コンテナは Agent Core(30010・公開) + OpenCode(40960・非公開) のみ。
+Frontend(51730)/Gatekeeper(58780) はホスト起動。コンテナは Agent Core(30010・公開) + OpenCode(40960・非公開) のみ。
 
 ## ポート割当（要件 #1 §2.6）
 
-| コンポーネント   | ポート                  |
-| ---------------- | ----------------------- |
-| Frontend (PWA)   | 51730                   |
-| Agent Core (BFF) | 30010                   |
-| OpenCode Server  | 40960（コンテナ内のみ） |
-| Gatekeeper API   | 87880（Windows ホスト） |
+| コンポーネント   | ポート                                                               |
+| ---------------- | -------------------------------------------------------------------- |
+| Frontend (PWA)   | 51730                                                                |
+| Agent Core (BFF) | 30010                                                                |
+| OpenCode Server  | 40960（コンテナ内のみ）                                              |
+| Gatekeeper API   | 58780（Windows ホスト）※要件 §2.6 の 87880 は TCP 上限超過のため修正 |
 
 ## UI 設計
 
