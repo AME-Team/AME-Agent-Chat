@@ -87,4 +87,10 @@ export const api = {
         body: JSON.stringify({ approved, whitelist, sessionId }),
       }),
   },
+
+  settings: {
+    get: () => request<Record<string, string>>('/api/settings'),
+    put: (body: Record<string, string>) =>
+      request<{ ok: boolean }>('/api/settings', { method: 'PUT', body: JSON.stringify(body) }),
+  },
 };

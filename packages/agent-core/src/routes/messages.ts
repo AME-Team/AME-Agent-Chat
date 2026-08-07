@@ -11,6 +11,7 @@
  */
 import type { Hono } from 'hono';
 import { getOpencodeClient } from '../opencode.js';
+import { resolveTaskModel } from '../router.js';
 
 interface PromptRequestBody {
   text: string;
@@ -34,16 +35,34 @@ export function registerMessageRoutes(app: Hono): void {
     const body = await c.req.json<PromptRequestBody>();
     if (!body.text) return c.json({ error: 'text is required' }, 400);
 
+    // LLM ルーター (#15): 未指定時はルールベースでモデルを選択し注入 (§2.3)
+    const routed = body.model ? undefined : await resolveTaskModel(body.text);
+
     const { data, error } = await api.session.prompt({
       path: { id },
       body: {
         parts: [{ type: 'text', text: body.text }],
-        model: body.model,
+        model:
+          body.model ??
+          (routed ? { providerID: routed.providerID, modelID: routed.modelID } : undefined),
         agent: body.agent,
       },
     });
     if (error) return c.json({ error }, 500);
-    return c.json(data, 201);
+    return c.json(
+      routed
+        ? {
+            info: data,
+            routed: {
+              tier: routed.tier,
+              provider: routed.providerID,
+              model: routed.modelID,
+              reasoningEffort: routed.reasoningEffort,
+            },
+          }
+        : data,
+      201,
+    );
   });
 
   app.post('/api/sessions/:id/abort', async (c) => {
