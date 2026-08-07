@@ -38,11 +38,12 @@ export const EFFORT_MATRICES: Record<EffortPreset, EffortMatrix> = {
   rush: { high: 'low', middle: 'low', low: 'low' },
 };
 
-/** デフォルトのティア別モデル (要件 #1 §3.2.1) — 全て OpenCode Go */
+/** デフォルトのティア別モデル (要件 #1 §3.2.1) — 全て OpenCode Go。
+ *  推論量は Effort Normal マトリクス (High×Middle / Middle×Middle / Low×Low) に整合。 */
 export const DEFAULT_TIER_CONFIG: TierConfig = {
   high: { provider: 'opencode-go', model: 'glm-5.2', reasoningEffort: 'middle' },
   middle: { provider: 'opencode-go', model: 'qwen-3.7-plus', reasoningEffort: 'middle' },
-  low: { provider: 'opencode-go', model: 'deepseek-v4-flash', reasoningEffort: 'middle' },
+  low: { provider: 'opencode-go', model: 'deepseek-v4-flash', reasoningEffort: 'low' },
 };
 
 export const EFFORT_PRESET_LABELS: Record<EffortPreset, string> = {

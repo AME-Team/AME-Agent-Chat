@@ -9,7 +9,7 @@ export function registerSettingsRoutes(app: Hono): void {
   app.get('/api/settings', async (c) => {
     const res = await fetch(`${env.gatekeeperUrl}/api/settings`).catch(() => null);
     if (!res) return c.json({ error: 'gatekeeper unavailable' }, 503);
-    return c.json(await res.json());
+    return c.json(await res.json(), res.status as 200 | 400 | 500);
   });
 
   app.put('/api/settings', async (c) => {
@@ -20,6 +20,7 @@ export function registerSettingsRoutes(app: Hono): void {
       body: JSON.stringify(body),
     }).catch(() => null);
     if (!res) return c.json({ error: 'gatekeeper unavailable' }, 503);
-    return c.json(await res.json());
+    // Gatekeeper のステータスを透過 (エラー時は失敗として伝わる)
+    return c.json(await res.json(), res.status as 200 | 400 | 500);
   });
 }

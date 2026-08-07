@@ -6,14 +6,10 @@
  *  2. 軽量 LLM 判定 — ルールで判定不能 (UNKNOWN) な場合は格安モデルで分類 (将来拡張)
  *  3. フォールバック — 判定エラー時は安全側 (Middle) へ
  *
- * 判定結果 → ティア選択 → プロバイダー/モデル/推論量を解決し prompt へ注入 (§3.2.1, §3.2.3)。
+ * 推論量は §3.2.1 の「ティア別設定」を実効値とする。
+ * Effort プリセット (§3.2.3) は選択時にティア別推論量へ適用される (設定画面側)。
  */
-import {
-  DEFAULT_TIER_CONFIG,
-  EFFORT_MATRICES,
-  type ModelTier,
-  type TierConfig,
-} from '@ame-agent-chat/shared';
+import { DEFAULT_TIER_CONFIG, type ModelTier, type TierConfig } from '@ame-agent-chat/shared';
 import { env } from './env.js';
 
 const LOW_RE =
@@ -31,30 +27,51 @@ export function routeTask(text: string): ModelTier {
 
 interface EffectiveSettings {
   tiers: TierConfig;
-  effortPreset: keyof typeof EFFORT_MATRICES;
   compressContext: boolean;
 }
 
-/** Gatekeeper の app_settings から実効設定を取得 (未接続時はデフォルトへフォールバック) */
+/** tiers JSON のスキーマ検証 (不正時はデフォルトへ) */
+function parseTiers(raw: string | undefined): TierConfig {
+  if (!raw) return DEFAULT_TIER_CONFIG;
+  try {
+    const parsed = JSON.parse(raw) as Partial<TierConfig>;
+    const tiers: Partial<TierConfig> = {};
+    for (const key of ['high', 'middle', 'low'] as const) {
+      const t = parsed[key];
+      if (t && typeof t.provider === 'string' && typeof t.model === 'string') {
+        tiers[key] = {
+          provider: t.provider,
+          model: t.model,
+          reasoningEffort: t.reasoningEffort ?? 'middle',
+        };
+      }
+    }
+    if (!tiers.high || !tiers.middle || !tiers.low) return DEFAULT_TIER_CONFIG;
+    return tiers as TierConfig;
+  } catch {
+    return DEFAULT_TIER_CONFIG;
+  }
+}
+
+// TTL キャッシュ: 設定は稀にしか変化しないため毎メッセージのブロッキング取得を回避 (§3.2.2.1)
+let cache: { at: number; settings: EffectiveSettings } | null = null;
+const TTL_MS = 30_000;
+
 async function fetchEffectiveSettings(): Promise<EffectiveSettings> {
-  const fallback: EffectiveSettings = {
-    tiers: DEFAULT_TIER_CONFIG,
-    effortPreset: 'normal',
-    compressContext: false,
-  };
+  if (cache && Date.now() - cache.at < TTL_MS) return cache.settings;
+  const fallback: EffectiveSettings = { tiers: DEFAULT_TIER_CONFIG, compressContext: false };
   try {
     const res = await fetch(`${env.gatekeeperUrl}/api/settings`, {
-      signal: AbortSignal.timeout(2000),
+      signal: AbortSignal.timeout(1500),
     });
     if (!res.ok) return fallback;
     const settings = (await res.json()) as Record<string, string>;
-    const tiers = settings.tiers ? (JSON.parse(settings.tiers) as TierConfig) : fallback.tiers;
-    const preset = settings.effortPreset as keyof typeof EFFORT_MATRICES;
-    return {
-      tiers,
-      effortPreset: EFFORT_MATRICES[preset] ? preset : fallback.effortPreset,
+    const result: EffectiveSettings = {
+      tiers: parseTiers(settings.tiers),
       compressContext: settings.compressContext === 'true',
     };
+    cache = { at: Date.now(), settings: result };
+    return result;
   } catch {
     return fallback;
   }
@@ -64,7 +81,7 @@ export interface RoutedModel {
   tier: ModelTier;
   providerID: string;
   modelID: string;
-  /** Effort プリセット × ティア で決まる推論量 (§3.2.3) */
+  /** §3.2.1 のティア別推論量 (プリセット適用後の実効値) */
   reasoningEffort: string;
 }
 
@@ -77,18 +94,15 @@ export async function resolveTaskModel(text: string): Promise<RoutedModel> {
     tier,
     providerID: config.provider,
     modelID: config.model,
-    reasoningEffort: EFFORT_MATRICES[settings.effortPreset][tier],
+    reasoningEffort: config.reasoningEffort,
   };
 }
 
 /**
  * プロンプト圧縮 (要件 #1 §3.2.4)
- * 設定が有効な場合、OpenCode の /compact 相当で履歴を圧縮してトークン削減。
- * (実際の圧縮は OpenCode session 側で実施し、ここでは有効フラグを返す)
+ * 設定が有効な場合、送信前に OpenCode の summarize(/compact) で履歴を圧縮してトークン削減。
  */
 export async function shouldCompact(): Promise<boolean> {
   const settings = await fetchEffectiveSettings();
   return settings.compressContext;
 }
-
-export const COMPACT_KEEP_MESSAGES = 20;

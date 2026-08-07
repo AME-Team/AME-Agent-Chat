@@ -28,6 +28,7 @@ export function ModelSettingsDialog() {
     effortPreset,
     compressContext,
     loaded,
+    loadError,
     load,
     setTier,
     setEffortPreset,
@@ -150,11 +151,14 @@ export function ModelSettingsDialog() {
           {t('settings.compress')}
         </label>
 
+        {loadError && <p className="mb-4 text-sm text-red-600">{t('settings.saveFailed')}</p>}
+
         <div className="flex justify-end">
           <button
             type="button"
             onClick={() => void onSave()}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:opacity-90"
+            disabled={loadError}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:opacity-90 disabled:opacity-40"
           >
             {t('settings.save')}
           </button>

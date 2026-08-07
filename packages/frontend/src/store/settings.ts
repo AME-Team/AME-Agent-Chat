@@ -16,8 +16,11 @@ interface SettingsState {
   effortPreset: EffortPreset;
   compressContext: boolean;
   loaded: boolean;
+  /** 読込失敗時は保存を抑止 (デフォルトで実設定を上書きしない) */
+  loadError: boolean;
   load: () => Promise<void>;
   setTier: (tier: keyof TierConfig, patch: Partial<TierConfig[keyof TierConfig]>) => void;
+  /** Effort プリセット選択 = 各ティアの推論量へマトリクスを適用 (§3.2.3) */
   setEffortPreset: (p: EffortPreset) => void;
   setCompressContext: (v: boolean) => void;
   save: () => Promise<void>;
@@ -28,6 +31,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   effortPreset: 'normal',
   compressContext: false,
   loaded: false,
+  loadError: false,
 
   load: async () => {
     try {
@@ -39,15 +43,24 @@ export const useSettings = create<SettingsState>((set, get) => ({
         effortPreset: EFFORT_MATRICES[preset] ? preset : 'normal',
         compressContext: s.compressContext === 'true',
         loaded: true,
+        loadError: false,
       });
     } catch {
-      set({ loaded: true });
+      set({ loaded: false, loadError: true });
     }
   },
 
   setTier: (tier, patch) =>
     set((st) => ({ tiers: { ...st.tiers, [tier]: { ...st.tiers[tier], ...patch } } })),
-  setEffortPreset: (p) => set({ effortPreset: p }),
+  setEffortPreset: (p) =>
+    set((st) => {
+      const matrix = EFFORT_MATRICES[p];
+      const tiers = { ...st.tiers } as TierConfig;
+      (['high', 'middle', 'low'] as const).forEach((tier) => {
+        tiers[tier] = { ...tiers[tier], reasoningEffort: matrix[tier] };
+      });
+      return { effortPreset: p, tiers };
+    }),
   setCompressContext: (v) => set({ compressContext: v }),
 
   save: async () => {

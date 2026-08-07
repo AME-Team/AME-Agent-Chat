@@ -11,7 +11,7 @@
  */
 import type { Hono } from 'hono';
 import { getOpencodeClient } from '../opencode.js';
-import { resolveTaskModel } from '../router.js';
+import { resolveTaskModel, shouldCompact } from '../router.js';
 
 interface PromptRequestBody {
   text: string;
@@ -35,9 +35,16 @@ export function registerMessageRoutes(app: Hono): void {
     const body = await c.req.json<PromptRequestBody>();
     if (!body.text) return c.json({ error: 'text is required' }, 400);
 
+    // プロンプト圧縮 (#18): 有効時は送信前に履歴を /compact 相当で圧縮
+    if (await shouldCompact()) {
+      await api.session.summarize({ path: { id } }).catch(() => {});
+    }
+
     // LLM ルーター (#15): 未指定時はルールベースでモデルを選択し注入 (§2.3)
     const routed = body.model ? undefined : await resolveTaskModel(body.text);
 
+    // ※ 推論量は OpenCode SDK の prompt body に直接注入できない (model は providerID/modelID のみ)。
+    //   実効推論量を routed.reasoningEffort として返し、表示・記録に利用する (§3.2.1/§3.2.3)。
     const { data, error } = await api.session.prompt({
       path: { id },
       body: {
@@ -49,20 +56,8 @@ export function registerMessageRoutes(app: Hono): void {
       },
     });
     if (error) return c.json({ error }, 500);
-    return c.json(
-      routed
-        ? {
-            info: data,
-            routed: {
-              tier: routed.tier,
-              provider: routed.providerID,
-              model: routed.modelID,
-              reasoningEffort: routed.reasoningEffort,
-            },
-          }
-        : data,
-      201,
-    );
+    // レスポンススキーマを常に一定に保つ (model 指定有無で形状を変えない)
+    return c.json({ info: data, routed: routed ?? null }, 201);
   });
 
   app.post('/api/sessions/:id/abort', async (c) => {
