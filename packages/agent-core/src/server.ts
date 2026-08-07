@@ -10,6 +10,7 @@ import { registerSessionRoutes } from './routes/sessions.js';
 import { registerMessageRoutes } from './routes/messages.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerModelRoutes } from './routes/models.js';
+import { registerPermissionRoutes } from './routes/permissions.js';
 
 export function createApp(): Hono {
   const app = new Hono();
@@ -29,6 +30,7 @@ export function createApp(): Hono {
   registerMessageRoutes(app);
   registerEventRoutes(app);
   registerModelRoutes(app);
+  registerPermissionRoutes(app);
 
   app.notFound((c) => c.json({ error: 'Not Found' }, 404));
   app.onError((err, c) => {

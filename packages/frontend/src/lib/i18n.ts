@@ -51,6 +51,19 @@ const ja: Dict = {
   'sidebar.confirmDeleteBody': 'この操作は取り消せません。',
   'common.cancel': 'キャンセル',
   'common.delete': '削除',
+  'approval.title': '操作の承認が必要です',
+  'approval.action': '操作',
+  'approval.type': '種別',
+  'approval.path': '対象パス',
+  'approval.command': 'コマンド',
+  'approval.approve': '承認',
+  'approval.reject': '拒否',
+  'approval.alwaysAllow': '常に許可',
+  'approval.approved': '承認しました',
+  'approval.whitelisted': 'この種の操作を今後も許可',
+  'approval.rejected': '拒否しました',
+  'approval.failed': '承認処理に失敗しました',
+  'approval.deniedByPolicy': 'この操作はポリシー上禁止されています (ホスト OS での実行不可)',
 };
 
 const en: Dict = {
@@ -97,6 +110,19 @@ const en: Dict = {
   'sidebar.confirmDeleteBody': 'This cannot be undone.',
   'common.cancel': 'Cancel',
   'common.delete': 'Delete',
+  'approval.title': 'Approval required',
+  'approval.action': 'Action',
+  'approval.type': 'Type',
+  'approval.path': 'Path',
+  'approval.command': 'Command',
+  'approval.approve': 'Approve',
+  'approval.reject': 'Reject',
+  'approval.alwaysAllow': 'Always allow',
+  'approval.approved': 'Approved',
+  'approval.whitelisted': 'Always allow this kind of operation',
+  'approval.rejected': 'Rejected',
+  'approval.failed': 'Failed to process approval',
+  'approval.deniedByPolicy': 'This operation is forbidden by policy (no host OS execution)',
 };
 
 const DICTS: Record<Locale, Dict> = { ja, en };

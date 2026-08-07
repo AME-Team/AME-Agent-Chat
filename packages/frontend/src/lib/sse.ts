@@ -5,6 +5,7 @@
  * 接続断時は自動再接続 (EventSource の仕様 + バックオフ)。
  */
 import { useApp } from '../store/app';
+import { useUI, type PendingPermission } from '../store/ui';
 
 let source: EventSource | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -17,6 +18,28 @@ export function connectEvents(): void {
 
   const handle = (type: string) => (ev: MessageEvent) => {
     try {
+      if (type === 'permission.updated') {
+        const p = JSON.parse(ev.data) as PendingPermission & {
+          sessionID?: string;
+          pattern?: string;
+          title?: string;
+          __autoHandled?: boolean;
+          __policy?: string;
+        };
+        // ポリシーで自動処理された(allow/deny)イベントはダイアログを出さない (#13)
+        if (p.__autoHandled) return;
+        useUI.getState().enqueuePermission({
+          id: p.id,
+          sessionId: p.sessionID ?? p.sessionId,
+          type: p.type,
+          path: p.path ?? p.pattern,
+          command: p.command,
+          description: p.description,
+          title: p.title,
+          policy: p.policy ?? p.__policy,
+        });
+        return;
+      }
       apply(type, JSON.parse(ev.data));
     } catch {
       /* ignore malformed */
