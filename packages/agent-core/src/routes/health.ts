@@ -21,7 +21,7 @@ export function registerHealthRoutes(app: Hono): void {
     c.json({
       name: APP_INFO.name,
       version: APP_INFO.version,
-      ports: { frontend: 51730, agentCore: env.port, opencode: 40960, gatekeeper: 87880 },
+      ports: { frontend: 51730, agentCore: env.port, opencode: 40960, gatekeeper: 58780 },
     }),
   );
 }

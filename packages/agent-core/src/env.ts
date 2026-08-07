@@ -15,8 +15,9 @@ export const env = {
   opencodeBaseUrl: process.env.OPENCODE_BASE_URL ?? 'http://localhost:40960',
   /** Frontend (PWA) — CORS 許可オリジン — 要件 #1 §2.6 */
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:51730',
-  /** Gatekeeper API (ホスト) — 要件 #1 §2.6 (Phase1 後続) */
-  gatekeeperUrl: process.env.GATEKEEPER_URL ?? 'http://localhost:87880',
+  /** Gatekeeper API (ホスト) — 要件 #1 §2.6 (Phase1 後続)
+   *  ※ 要件表の 87880 は TCP 上限超過のため実運用は 58780 */
+  gatekeeperUrl: process.env.GATEKEEPER_URL ?? 'http://localhost:58780',
 } as const;
 
 export const APP_INFO = {
