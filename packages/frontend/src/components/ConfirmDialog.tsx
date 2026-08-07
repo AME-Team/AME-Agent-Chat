@@ -1,9 +1,12 @@
 /**
- * 確認ダイアログ (要件 #2 §2.1 復元確認ダイアログ)
- * Escape で閉じ・aria-labelledby・初期フォーカス。
+ * 削除確認ダイアログ (要件 #2 §2.1 セッション削除時の復元確認)
+ * Escape で閉じ・aria-labelledby/describedby・初期フォーカス (WCAG 2.1 AA)。
  */
 import { useEffect, useRef } from 'react';
 import { useI18n } from '../lib/i18n';
+
+const TITLE_ID = 'confirm-dialog-title';
+const BODY_ID = 'confirm-dialog-body';
 
 export function ConfirmDialog({
   open,
@@ -43,9 +46,17 @@ export function ConfirmDialog({
         onClick={(e) => e.stopPropagation()}
         role="alertdialog"
         aria-modal
+        aria-labelledby={TITLE_ID}
+        aria-describedby={BODY_ID}
       >
-        <h2 className="mb-2 text-base font-bold">{title}</h2>
-        {body && <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">{body}</p>}
+        <h2 id={TITLE_ID} className="mb-2 text-base font-bold">
+          {title}
+        </h2>
+        {body && (
+          <p id={BODY_ID} className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+            {body}
+          </p>
+        )}
         <div className="flex justify-end gap-2">
           <button
             type="button"

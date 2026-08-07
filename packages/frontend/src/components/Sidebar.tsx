@@ -2,7 +2,16 @@
  * セッションサイドバー (要件 #2 §2)
  * 一覧・新規作成・切替・削除(確認)・複製・ピン留め・並び替え・タイトル編集・検索。
  */
-import { ArrowDownUp, Copy, MessageSquarePlus, Pin, PinOff, Search, Trash2 } from 'lucide-react';
+import {
+  ArrowDownUp,
+  Copy,
+  MessageSquarePlus,
+  Pencil,
+  Pin,
+  PinOff,
+  Search,
+  Trash2,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useI18n } from '../lib/i18n';
 import { cn } from '../lib/cn';
@@ -105,6 +114,17 @@ export function Sidebar() {
               className="rounded p-1 text-gray-400 hover:text-primary"
             >
               {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                startRename(s);
+              }}
+              aria-label={t('sidebar.rename')}
+              className="rounded p-1 text-gray-400 hover:text-primary"
+            >
+              <Pencil className="size-3.5" />
             </button>
             <button
               type="button"

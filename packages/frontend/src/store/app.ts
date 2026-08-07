@@ -86,6 +86,9 @@ function partsToReasoning(parts: OCPart[] | undefined): string {
 /** OpenCode が通知した user メッセージ ID (楽観的表示と二重表示を防ぐ) */
 const knownUserIds = new Set<string>();
 
+/** 直前に自前で作成したセッション ID (タイトル自動生成の初回送信判定用) */
+let lastCreatedId: string | null = null;
+
 export const useApp = create<AppState>((set, get) => ({
   theme: (localStorage.getItem('theme') as Theme) ?? 'system',
   accent: (localStorage.getItem('accent') as AccentColor) ?? 'trust-blue',
@@ -122,6 +125,7 @@ export const useApp = create<AppState>((set, get) => ({
 
   createSession: async () => {
     const s = await api.sessions.create();
+    lastCreatedId = s.id;
     set((st) => ({ sessions: [s, ...st.sessions], currentId: s.id, messages: [] }));
     return s.id;
   },
@@ -161,13 +165,12 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   togglePin: (id) => {
-    set((st) => {
-      const pinned = st.pinned.includes(id)
-        ? st.pinned.filter((p) => p !== id)
-        : [...st.pinned, id];
-      localStorage.setItem('pinned', JSON.stringify(pinned));
-      return { pinned };
-    });
+    // updater 内で副作用を起こさない (StrictMode 二重実行対策)
+    const pinned = get().pinned.includes(id)
+      ? get().pinned.filter((p) => p !== id)
+      : [...get().pinned, id];
+    localStorage.setItem('pinned', JSON.stringify(pinned));
+    set({ pinned });
   },
 
   setSortOrder: (order) => {
@@ -195,11 +198,11 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   sendMessage: async (text) => {
-    const { currentId, createSession, messages, sessions } = get();
+    const { currentId, createSession, messages } = get();
     const id = currentId ?? (await createSession());
-    // タイトル自動生成: 空/スラッグ相当タイトルの新規セッションは初回メッセージから命名 (#2 §2.2)
-    const session = sessions.find((s) => s.id === id);
-    if (session && /^[a-z0-9-]+$/.test(session.title)) {
+    // タイトル自動生成: 自前で作成した直後のセッションの初回送信時のみ命名 (#2 §2.2)
+    if (lastCreatedId === id) {
+      lastCreatedId = null;
       const title = text.replace(/\s+/g, ' ').trim().slice(0, 30) || 'New Chat';
       void api.sessions.update(id, title).then((s) => {
         set((st) => ({ sessions: st.sessions.map((x) => (x.id === id ? s : x)) }));
