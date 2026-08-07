@@ -32,11 +32,15 @@ export function App() {
   // キーボードショートカット (要件 #2 §9.1, §9.4)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // 入力欄ではショートカットを発火させない (IME 確定や ? 入力の誤発火防止)
+      const target = e.target as HTMLElement | null;
+      const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
-        e.preventDefault();
-        void createSession();
-      }
-      if (e.key === '?') {
+        if (!typing) {
+          e.preventDefault();
+          void createSession();
+        }
+      } else if (e.key === '?' && !typing && !e.isComposing) {
         useUI.getState().setHelpOpen(true);
       }
     };

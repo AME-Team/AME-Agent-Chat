@@ -11,6 +11,7 @@
  */
 import type { Hono } from 'hono';
 import { getOpencodeClient } from '../opencode.js';
+import { env } from '../env.js';
 import { resolveTaskModel, shouldCompact } from '../router.js';
 
 interface PromptRequestBody {
@@ -21,7 +22,8 @@ interface PromptRequestBody {
   attachments?: Array<{ mime: string; url: string; filename?: string }>;
 }
 
-/** @ファイル参照 (#2 §3.3): @path トークンを解決しファイル内容をコンテキストへ追加 */
+/** @ファイル参照 (#2 §3.3): @path トークンを解決しファイル内容をコンテキストへ追加
+ *  ※ Gatekeeper ポリシー(ワークスペース内)で検証してから読み込む (ファイルI/O 制御層を経由) */
 const AT_RE = /(^|\s)@([\w./\\-]+)/g;
 async function augmentFileRefs(text: string): Promise<string> {
   const matches = [...text.matchAll(AT_RE)];
@@ -29,12 +31,22 @@ async function augmentFileRefs(text: string): Promise<string> {
   if (paths.length === 0) return text;
   const parts: string[] = [text];
   for (const p of paths) {
-    try {
-      const res = await getOpencodeClient().file.read({ query: { path: p } });
-      const content = (res.data as { content?: string } | undefined)?.content;
-      if (content) parts.push(`\n\n【ファイル: ${p}】\n${content}`);
-    } catch {
-      /* ファイル解決不可は無視 */
+    // Gatekeeper のポリシー判定 (ワークスペース外はブロック) — 要件 #1 §3.4
+    const policy = await fetch(`${env.gatekeeperUrl}/api/policy/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'read', path: p }),
+    })
+      .then((r) => r.json() as Promise<{ action?: string }>)
+      .catch(() => ({ action: undefined }));
+    if (policy.action === 'allow') {
+      try {
+        const res = await getOpencodeClient().file.read({ query: { path: p } });
+        const content = (res.data as { content?: string } | undefined)?.content;
+        if (content) parts.push(`\n\n【ファイル: ${p}】\n${content}`);
+      } catch {
+        /* ファイル解決不可は無視 */
+      }
     }
   }
   return parts.join('');
@@ -56,12 +68,11 @@ export function registerMessageRoutes(app: Hono): void {
     const body = await c.req.json<PromptRequestBody>();
     if (!body.text) return c.json({ error: 'text is required' }, 400);
 
-    // @ファイル参照: 内容をコンテキストへ自動追加 (#2 §3.3)
-    const text = await augmentFileRefs(body.text);
-
-    // !Bash: サンドボックス(コンテナ)内でコマンドを実行し結果を返す (#2 §3.3)
-    if (text.trim().startsWith('!')) {
-      const command = text.trim().slice(1).trim();
+    // !Bash (#2 §3.3): サンドボックス(コンテナ)内でコマンドを実行し結果を返す
+    // ※ @参照のファイル内容がコマンドへ混入しないよう、生テキストのまま判定し
+    //   Markdown 画像記法 `![...]` とは衝突を回避
+    if (body.text.trim().startsWith('!') && !body.text.trim().startsWith('![')) {
+      const command = body.text.trim().slice(1).trim();
       const shell = await api.session.shell({
         path: { id },
         body: { agent: body.agent ?? 'build', command },
@@ -69,6 +80,9 @@ export function registerMessageRoutes(app: Hono): void {
       if (shell.error) return c.json({ error: shell.error }, 500);
       return c.json({ bash: { command, output: shell.data } }, 201);
     }
+
+    // @ファイル参照: 内容をコンテキストへ自動追加 (#2 §3.3)
+    const text = await augmentFileRefs(body.text);
 
     // プロンプト圧縮 (#18): 有効時は送信前に履歴を /compact 相当で圧縮
     if (await shouldCompact()) {
@@ -113,7 +127,9 @@ export function registerMessageRoutes(app: Hono): void {
     if (!q) return c.json([]);
     const { data, error } = await api.find.files({ query: { query: q, dirs: 'false' } });
     if (error) return c.json({ error }, 500);
-    return c.json(data);
+    // SDK は string[] を返すが、防御的に検証して正規化
+    if (!Array.isArray(data)) return c.json([]);
+    return c.json(data.filter((p): p is string => typeof p === 'string'));
   });
 
   app.post('/api/sessions/:id/abort', async (c) => {

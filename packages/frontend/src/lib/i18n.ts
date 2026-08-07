@@ -97,6 +97,11 @@ const ja: Dict = {
   'command.shared': 'セッションを共有しました',
   'command.imported': 'セッションをインポートしました',
   'command.importFailed': 'インポートに失敗しました',
+  'notify.sessionComplete': 'セッションの処理が完了しました',
+  'notify.approvalRequired': '承認が必要な操作があります',
+  'bash.failed': '実行に失敗しました',
+  'chat.attachTooLarge': '添付ファイルが大きすぎます（上限 5MB）',
+  'chat.attachLimit': '添付は最大 4 件です',
 };
 
 const en: Dict = {
@@ -189,6 +194,11 @@ const en: Dict = {
   'command.shared': 'Session shared',
   'command.imported': 'Session imported',
   'command.importFailed': 'Import failed',
+  'notify.sessionComplete': 'Session processing complete',
+  'notify.approvalRequired': 'Approval required',
+  'bash.failed': 'Execution failed',
+  'chat.attachTooLarge': 'Attachment too large (max 5MB)',
+  'chat.attachLimit': 'Max 4 attachments',
 };
 
 const DICTS: Record<Locale, Dict> = { ja, en };
@@ -208,4 +218,10 @@ export function useI18n(): I18n {
 export function translate(locale: Locale, key: string, vars?: Record<string, string>): string {
   const raw = DICTS[locale][key] ?? DICTS.ja[key] ?? key;
   return vars ? raw.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '') : raw;
+}
+
+/** 非コンポーネント(ストア/ユーティリティ)から現在 locale で翻訳するヘルパー */
+export function tr(key: string, vars?: Record<string, string>): string {
+  const locale = (localStorage.getItem('locale') as Locale) ?? 'ja';
+  return translate(locale, key, vars);
 }

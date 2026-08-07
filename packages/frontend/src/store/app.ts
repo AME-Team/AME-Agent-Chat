@@ -4,6 +4,7 @@
  */
 import { create } from 'zustand';
 import { api, type AppSession } from '../lib/api';
+import { tr } from '../lib/i18n';
 import type { AccentColor, Locale, SessionSortOrder, Theme } from '@ame-agent-chat/shared';
 
 export interface AppMessage {
@@ -222,7 +223,8 @@ export const useApp = create<AppState>((set, get) => ({
     const id = currentId ?? (await createSession());
 
     // !Bash (#2 §3.3): サンドボックス実行 → 出力をアシスタントメッセージとして追加
-    if (text.trim().startsWith('!')) {
+    //   ※ Markdown 画像記法 `![...]` との衝突を回避
+    if (text.trim().startsWith('!') && !text.trim().startsWith('![')) {
       const optimistic: AppMessage = { id: `local-${Date.now()}`, role: 'user', text };
       set({ messages: [...messages, optimistic], busy: true });
       try {
@@ -245,7 +247,7 @@ export const useApp = create<AppState>((set, get) => ({
             {
               id: `bash-${Date.now()}`,
               role: 'assistant',
-              text: `実行に失敗しました: ${String(e)}`,
+              text: `${tr('bash.failed')}: ${String(e)}`,
             },
           ],
         }));

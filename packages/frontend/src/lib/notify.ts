@@ -45,14 +45,27 @@ export function notify(title: string, body?: string): void {
   }
 }
 
-/** 通知音 (Web Audio) */
-export function playSound(): void {
-  if (!soundEnabled()) return;
+/** 通知音 (Web Audio) — AudioContext は単一インスタンスを再利用 (リーク防止) */
+let audioCtx: AudioContext | null = null;
+
+function getAudioContext(): AudioContext | null {
+  if (audioCtx) return audioCtx;
   try {
     const Ctx =
       window.AudioContext ??
       (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
+    audioCtx = new Ctx();
+    return audioCtx;
+  } catch {
+    return null;
+  }
+}
+
+export function playSound(): void {
+  if (!soundEnabled()) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  try {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.frequency.value = 880;

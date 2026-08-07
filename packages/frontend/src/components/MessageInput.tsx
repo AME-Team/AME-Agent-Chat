@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Paperclip, Send, Square } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { useApp } from '../store/app';
+import { useUI } from '../store/ui';
 import { CommandPalette } from './CommandPalette';
 import { executeCommand, matchCommands, parseCommand } from '../lib/commands';
 import { api } from '../lib/api';
@@ -139,6 +140,21 @@ export function MessageInput() {
   };
 
   const addFile = async (file: File) => {
+    // 添付サイズ上限 (低コスト運用との整合) — #2 §3.2
+    const MAX_BYTES = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_BYTES) {
+      useUI
+        .getState()
+        .pushToast(
+          `${t('chat.attachTooLarge')} (${Math.round(file.size / 1024 / 1024)}MB)`,
+          'error',
+        );
+      return;
+    }
+    if (files.length >= 4) {
+      useUI.getState().pushToast(t('chat.attachLimit'), 'error');
+      return;
+    }
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result));
@@ -246,7 +262,11 @@ export function MessageInput() {
           ))}
         </div>
       )}
-      <div onDrop={onDrop} onDragOver={(e) => e.preventDefault()} className="mx-auto max-w-3xl">
+      <div
+        onDrop={onDrop}
+        onDragOver={(e) => e.preventDefault()}
+        className="relative mx-auto max-w-3xl"
+      >
         {files.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
             {files.map((f, i) => (
