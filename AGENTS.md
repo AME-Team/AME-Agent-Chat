@@ -32,6 +32,16 @@ pnpm -r --filter <pkg> <script>  # 個別パッケージ実行
 
 **注意**: 変更後は必ず `pnpm typecheck` / `pnpm lint` / `pnpm format:check` を実行して品質を担保すること。
 
+### Docker（Agent Core + OpenCode 同居コンテナ）
+
+```bash
+WORKSPACE_DIR=$(pwd) docker compose up -d --build   # 起動
+docker compose logs -f agent                         # ログ
+docker compose down                                  # 停止
+```
+
+Frontend(51730)/Gatekeeper(87880) はホスト起動。コンテナは Agent Core(30010・公開) + OpenCode(40960・非公開) のみ。
+
 ## ポート割当（要件 #1 §2.6）
 
 | コンポーネント   | ポート                  |

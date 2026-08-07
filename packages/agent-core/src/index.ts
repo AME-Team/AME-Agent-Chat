@@ -10,9 +10,9 @@ import { pingOpencode } from './opencode.js';
 
 const app = createApp();
 
-serve({ fetch: app.fetch, port: env.port }, async (info) => {
+serve({ fetch: app.fetch, port: env.port, hostname: env.host }, async (info) => {
   const opencode = await pingOpencode();
-  console.log(`[agent-core] listening on http://localhost:${info.port}`);
+  console.log(`[agent-core] listening on http://${env.host}:${info.port}`);
   console.log(
     `[agent-core] OpenCode Server (${env.opencodeBaseUrl}): ${opencode ? 'reachable' : 'unreachable — `opencode serve` を起動してください'}`,
   );

@@ -1,0 +1,30 @@
+# AME Agent Chat — Agent コンテナ構成 (要件 #1 §2.4, §2.6)
+# Frontend (51730) と Gatekeeper (87880) はホスト側で起動。
+# コンテナ内では Agent Core (30010) + OpenCode Server (40960・非公開) が同居。
+name: ame-agent-chat
+
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: ame-agent
+    # ホストワークスペースを /workspace へ bind mount (要件 #1 §2.4)
+    # ※WORKSPACE_DIR の中身はコンテナの node(uid 1000) が読み書きできる必要がある。
+    #   Windows(Docker Desktop) は自動解決。Linux はホスト uid と 1000 を一致推奨。
+    volumes:
+      - ${WORKSPACE_DIR:-.}:/workspace
+    ports:
+      # Frontend(ホスト) -> Agent Core(BFF) — 要件 #1 §2.6
+      - '30010:30010'
+      # OpenCode Server はコンテナ内のみ (非公開) — 要件 #1 §2.6
+    environment:
+      OPENCODE_BASE_URL: http://localhost:40960
+      GATEKEEPER_URL: http://host.docker.internal:87880
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:51730}
+    # Linux ホスト/CI で host.docker.internal を解決 (Windows では無害)
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    # Outbound(Egress) 許可 — pip/npm install 自律解決 (要件 #1 §3.3.2) は既定で許可
+    # ヘルスチェックは Dockerfile の HEALTHCHECK に一本化
+    restart: unless-stopped

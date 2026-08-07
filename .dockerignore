@@ -1,0 +1,9 @@
+# Docker ビルドコンテキスト除外
+node_modules
+dist
+build
+.git
+.ame-review/engines-ts
+coverage
+*.log
+.env

@@ -9,6 +9,8 @@ import { version } from 'node:process';
 export const env = {
   /** Agent Core (BFF) ポート — 要件 #1 §2.6 */
   port: Number(process.env.PORT ?? 30010),
+  /** バインド先ホスト (コンテナ公開時は 0.0.0.0) — 要件 #1 §2.6 */
+  host: process.env.HOST ?? '0.0.0.0',
   /** OpenCode Server URL (コンテナ内同居) — 要件 #1 §2.2, §2.4 */
   opencodeBaseUrl: process.env.OPENCODE_BASE_URL ?? 'http://localhost:40960',
   /** Frontend (PWA) — CORS 許可オリジン — 要件 #1 §2.6 */
