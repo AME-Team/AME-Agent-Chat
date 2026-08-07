@@ -11,6 +11,7 @@ const ja: Dict = {
   'app.title': 'AME Agent Chat',
   'sidebar.newChat': '新規チャット',
   'sidebar.search': 'セッションを検索',
+  'sidebar.searchResults': '検索結果',
   'sidebar.empty': 'セッションがありません',
   'chat.placeholder': 'メッセージを入力... (Enter で送信 / Shift+Enter で改行)',
   'chat.empty': '会話を始めましょう',
@@ -90,12 +91,18 @@ const ja: Dict = {
   'auth.loginFailed': '認証に失敗しました',
   'auth.methods': '件の認証方法',
   'command.noRevertTarget': '戻す対象のメッセージがありません',
+  'command.detailsOn': 'ツール実行詳細: ON',
+  'command.detailsOff': 'ツール実行詳細: OFF',
+  'command.shared': 'セッションを共有しました',
+  'command.imported': 'セッションをインポートしました',
+  'command.importFailed': 'インポートに失敗しました',
 };
 
 const en: Dict = {
   'app.title': 'AME Agent Chat',
   'sidebar.newChat': 'New Chat',
   'sidebar.search': 'Search sessions',
+  'sidebar.searchResults': 'Search results',
   'sidebar.empty': 'No sessions',
   'chat.placeholder': 'Type a message... (Enter to send / Shift+Enter for newline)',
   'chat.empty': 'Start a conversation',
@@ -175,6 +182,11 @@ const en: Dict = {
   'auth.loginFailed': 'Authentication failed',
   'auth.methods': 'auth methods',
   'command.noRevertTarget': 'No message to revert to',
+  'command.detailsOn': 'Tool details: ON',
+  'command.detailsOff': 'Tool details: OFF',
+  'command.shared': 'Session shared',
+  'command.imported': 'Session imported',
+  'command.importFailed': 'Import failed',
 };
 
 const DICTS: Record<Locale, Dict> = { ja, en };
