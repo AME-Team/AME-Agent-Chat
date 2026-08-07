@@ -4,6 +4,7 @@
  */
 import { create } from 'zustand';
 import { api, type AppSession } from '../lib/api';
+import { tr } from '../lib/i18n';
 import type { AccentColor, Locale, SessionSortOrder, Theme } from '@ame-agent-chat/shared';
 
 export interface AppMessage {
@@ -24,6 +25,13 @@ export interface ToolEvent {
   state?: string;
   input?: string;
   time: number;
+}
+
+/** メッセージ添付ファイル (D&D / クリップボード貼付) — #2 §3.2 */
+export interface Attachment {
+  mime: string;
+  url: string;
+  filename?: string;
 }
 
 interface AppState {
@@ -60,7 +68,7 @@ interface AppState {
   /** プロセス可視化 (#20) — セッション内のツール実行イベント */
   tools: ToolEvent[];
   loadMessages: (id: string) => Promise<void>;
-  sendMessage: (text: string) => Promise<void>;
+  sendMessage: (text: string, attachments?: Attachment[]) => Promise<void>;
   abort: () => Promise<void>;
   applySSE: (event: string, properties: unknown) => void;
   clearMessages: () => void;
@@ -210,9 +218,43 @@ export const useApp = create<AppState>((set, get) => ({
     }
   },
 
-  sendMessage: async (text) => {
+  sendMessage: async (text, attachments = []) => {
     const { currentId, createSession, messages } = get();
     const id = currentId ?? (await createSession());
+
+    // !Bash (#2 §3.3): サンドボックス実行 → 出力をアシスタントメッセージとして追加
+    //   ※ Markdown 画像記法 `![...]` との衝突を回避
+    if (text.trim().startsWith('!') && !text.trim().startsWith('![')) {
+      const optimistic: AppMessage = { id: `local-${Date.now()}`, role: 'user', text };
+      set({ messages: [...messages, optimistic], busy: true });
+      try {
+        const res = await api.messages.bash(id, text.trim().slice(1).trim());
+        const output =
+          typeof res.bash.output === 'string'
+            ? res.bash.output
+            : JSON.stringify(res.bash.output, null, 2);
+        const assistant: AppMessage = {
+          id: `bash-${Date.now()}`,
+          role: 'assistant',
+          text: `\`\`\`bash\n$ ${res.bash.command}\n\`\`\`\n\n${output}`,
+        };
+        set((st) => ({ messages: [...st.messages, assistant], busy: false }));
+      } catch (e) {
+        set((st) => ({
+          busy: false,
+          messages: [
+            ...st.messages,
+            {
+              id: `bash-${Date.now()}`,
+              role: 'assistant',
+              text: `${tr('bash.failed')}: ${String(e)}`,
+            },
+          ],
+        }));
+      }
+      return;
+    }
+
     // タイトル自動生成: 自前で作成した直後のセッションの初回送信時のみ命名 (#2 §2.2)
     if (lastCreatedId === id) {
       lastCreatedId = null;
@@ -225,10 +267,12 @@ export const useApp = create<AppState>((set, get) => ({
     const optimistic: AppMessage = {
       id: `local-${Date.now()}`,
       role: 'user',
-      text,
+      text: attachments.length
+        ? `${text}\n\n[添付: ${attachments.map((a) => a.filename ?? a.mime).join(', ')}]`
+        : text,
     };
     set({ messages: [...messages, optimistic], busy: true });
-    await api.messages.send(id, text);
+    await api.messages.send(id, text, undefined, attachments);
   },
 
   abort: async () => {

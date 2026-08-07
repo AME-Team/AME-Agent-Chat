@@ -14,16 +14,39 @@ import { ModelSettingsDialog } from './components/SettingsDialog';
 import { ApprovalHistoryDialog } from './components/ApprovalHistoryDialog';
 import { AuthDialog } from './components/AuthDialog';
 import { useApp } from './store/app';
+import { useUI } from './store/ui';
 import { connectEvents, disconnectEvents } from './lib/sse';
+import { requestNotifyPermission } from './lib/notify';
 
 export function App() {
   const loadSessions = useApp((s) => s.loadSessions);
+  const createSession = useApp((s) => s.createSession);
 
   useEffect(() => {
     void loadSessions();
     connectEvents();
+    requestNotifyPermission();
     return () => disconnectEvents();
   }, [loadSessions]);
+
+  // キーボードショートカット (要件 #2 §9.1, §9.4)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // 入力欄ではショートカットを発火させない (IME 確定や ? 入力の誤発火防止)
+      const target = e.target as HTMLElement | null;
+      const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+        if (!typing) {
+          e.preventDefault();
+          void createSession();
+        }
+      } else if (e.key === '?' && !typing && !e.isComposing) {
+        useUI.getState().setHelpOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [createSession]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">

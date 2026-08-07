@@ -4,10 +4,14 @@
  */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { registerSW } from 'virtual:pwa-register';
 import { App } from './App';
 import { I18nContext, translate } from './lib/i18n';
 import { useApp } from './store/app';
 import './styles/index.css';
+
+// PWA サービスワーカー登録 (インストール可能な PWA・独立ウィンドウ) — 要件 #1 §3.1.6
+registerSW({ immediate: true });
 
 function applyThemeAttributes() {
   const { theme, accent, locale } = useApp.getState();

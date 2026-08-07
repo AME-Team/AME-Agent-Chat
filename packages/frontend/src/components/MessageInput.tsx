@@ -4,11 +4,13 @@
  * 下書き保持(セッション単位)・入力履歴(↑↓)・スラッシュコマンドサジェスト。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Send, Square } from 'lucide-react';
+import { Paperclip, Send, Square } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { useApp } from '../store/app';
+import { useUI } from '../store/ui';
 import { CommandPalette } from './CommandPalette';
 import { executeCommand, matchCommands, parseCommand } from '../lib/commands';
+import { api } from '../lib/api';
 
 const DRAFT_PREFIX = 'draft:';
 const HIST_PREFIX = 'history:';
@@ -55,6 +57,9 @@ export function MessageInput() {
   const { t } = useI18n();
   const [text, setText] = useState('');
   const [active, setActive] = useState(0);
+  const [files, setFiles] = useState<Array<{ name: string; dataUrl: string; mime: string }>>([]);
+  const [fileSuggestions, setFileSuggestions] = useState<string[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const skipDraftRef = useRef(false);
   const busy = useApp((s) => s.busy);
@@ -91,16 +96,96 @@ export function MessageInput() {
 
   useEffect(() => setActive(0), [paletteQuery]);
 
+  // @ファイル参照サジェスト (#2 §3.3): 末尾の @query を検出して候補表示
+  const atMatch = useMemo(() => {
+    const m = text.match(/(?:^|\s)@([\w./-]*)$/);
+    return m ? { query: m[1] } : null;
+  }, [text]);
+
+  useEffect(() => {
+    if (!atMatch || atMatch.query.length < 2) {
+      setFileSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const hits = await api.files.search(atMatch.query);
+        if (!cancelled) setFileSuggestions(hits.slice(0, 6));
+      } catch {
+        if (!cancelled) setFileSuggestions([]);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [atMatch]);
+
+  const pickFile = (path: string) => {
+    setText((prev) => prev.replace(/(?:^|\s)@[\w./-]*$/, ` @${path}`).replace(/^\s/, ''));
+    setFileSuggestions([]);
+  };
+
+  // クリップボード貼付 (画像) — #2 §3.2
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    for (const item of e.clipboardData.items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) void addFile(file);
+        e.preventDefault();
+        return;
+      }
+    }
+  };
+
+  const addFile = async (file: File) => {
+    // 添付サイズ上限 (低コスト運用との整合) — #2 §3.2
+    const MAX_BYTES = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_BYTES) {
+      useUI
+        .getState()
+        .pushToast(
+          `${t('chat.attachTooLarge')} (${Math.round(file.size / 1024 / 1024)}MB)`,
+          'error',
+        );
+      return;
+    }
+    if (files.length >= 4) {
+      useUI.getState().pushToast(t('chat.attachLimit'), 'error');
+      return;
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    setFiles((prev) => [...prev, { name: file.name, mime: file.type, dataUrl }]);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    for (const file of Array.from(e.dataTransfer.files)) void addFile(file);
+  };
+
+  const tokenEstimate =
+    text.length > 0
+      ? Math.ceil(text.length / (text.match(/[\u3040-\u30ff\u4e00-\u9fff]/) ? 1.5 : 4))
+      : 0;
+
   const submit = async () => {
     const value = text.trim();
     if (!value || busy) return;
     setText('');
+    const attachments = files.map((f) => ({ mime: f.mime, url: f.dataUrl, filename: f.name }));
+    setFiles([]);
     if (currentId) pushHistory(currentId, value);
     const cmd = parseCommand(value);
     if (cmd) {
       await executeCommand(cmd.name, cmd.args);
     } else {
-      await sendMessage(value);
+      await sendMessage(value, attachments);
     }
   };
 
@@ -163,39 +248,99 @@ export function MessageInput() {
           onPick={pickCommand}
         />
       )}
-      <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-lg border border-gray-200 p-2 focus-within:border-primary dark:border-gray-700">
-        <textarea
-          ref={taRef}
-          rows={1}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder={t('chat.placeholder')}
-          className="max-h-[200px] flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-relaxed outline-none placeholder:text-gray-400"
-        />
-        {busy ? (
-          <button
-            type="button"
-            onClick={() => void abort()}
-            aria-label={t('chat.stop')}
-            className="flex size-8 items-center justify-center rounded-md bg-gray-200 text-gray-700 transition-colors duration-150 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-          >
-            <Square className="size-4" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => void submit()}
-            disabled={!text.trim()}
-            aria-label={t('chat.send')}
-            className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors duration-150 hover:opacity-90 disabled:opacity-40"
-          >
-            <Send className="size-4" />
-          </button>
+      {fileSuggestions.length > 0 && (
+        <div className="absolute bottom-full left-1/2 mb-2 w-72 -translate-x-1/2 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-md dark:border-gray-700 dark:bg-gray-800">
+          {fileSuggestions.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => pickFile(p)}
+              className="block w-full truncate px-3 py-2 text-left text-xs font-mono hover:bg-primary/10"
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
+      <div
+        onDrop={onDrop}
+        onDragOver={(e) => e.preventDefault()}
+        className="relative mx-auto max-w-3xl"
+      >
+        {files.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {files.map((f, i) => (
+              <span
+                key={`${f.name}-${i}`}
+                className="flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs dark:border-gray-700"
+              >
+                {f.name}
+                <button
+                  type="button"
+                  onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                  aria-label="remove"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
         )}
-      </div>
-      <div className="mx-auto mt-1 flex max-w-3xl justify-end">
-        <span className="text-xs text-gray-400">{text.length}</span>
+        <div className="flex items-end gap-2 rounded-lg border border-gray-200 p-2 focus-within:border-primary dark:border-gray-700">
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              for (const file of Array.from(e.target.files ?? [])) void addFile(file);
+              e.target.value = '';
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            aria-label={t('chat.attach')}
+            className="flex size-8 items-center justify-center rounded-md text-gray-400 transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            <Paperclip className="size-4" />
+          </button>
+          <textarea
+            ref={taRef}
+            rows={1}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={onKeyDown}
+            onPaste={onPaste}
+            placeholder={t('chat.placeholder')}
+            className="max-h-[200px] flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-relaxed outline-none placeholder:text-gray-400"
+          />
+          {busy ? (
+            <button
+              type="button"
+              onClick={() => void abort()}
+              aria-label={t('chat.stop')}
+              className="flex size-8 items-center justify-center rounded-md bg-gray-200 text-gray-700 transition-colors duration-150 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+            >
+              <Square className="size-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void submit()}
+              disabled={!text.trim()}
+              aria-label={t('chat.send')}
+              className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors duration-150 hover:opacity-90 disabled:opacity-40"
+            >
+              <Send className="size-4" />
+            </button>
+          )}
+        </div>
+        <div className="mt-1 flex justify-end gap-2">
+          <span className="text-xs text-gray-400">
+            {text.length} chars · ~{tokenEstimate} tokens
+          </span>
+        </div>
       </div>
     </div>
   );
