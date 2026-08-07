@@ -7,6 +7,7 @@
 import { useRef, useState } from 'react';
 import MarkdownReact from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import rehypeHighlight from 'rehype-highlight';
 import { Check, Copy } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
@@ -25,9 +26,13 @@ function CodeBlock({
   const [copied, setCopied] = useState(false);
 
   const onCopy = async () => {
-    await navigator.clipboard.writeText(preRef.current?.textContent ?? '');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(preRef.current?.textContent ?? '');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* 非セキュアコンテキスト等ではクリップボード不可 */
+    }
   };
 
   return (
@@ -57,12 +62,12 @@ export function Markdown({ children }: { children: string }) {
   return (
     <div className="md-body text-sm leading-relaxed">
       <MarkdownReact
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkBreaks]}
         rehypePlugins={[[rehypeHighlight, { detect: true, ignoreMissing: true }]]}
         components={{
           pre: ({ children }) => <>{children}</>,
           code: ({ className, children }) => {
-            const match = /language-(\w+)/.exec(className ?? '');
+            const match = /language-([\w-]+)/.exec(className ?? '');
             if (match) {
               return (
                 <CodeBlock language={match[1]} className={className}>

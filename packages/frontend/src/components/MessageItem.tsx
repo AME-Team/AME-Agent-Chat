@@ -18,9 +18,13 @@ export function MessageItem({ message }: { message: AppMessage }) {
   const isUser = message.role === 'user';
 
   const copy = async () => {
-    await navigator.clipboard.writeText(message.text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(message.text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* 非セキュアコンテキスト等ではクリップボード不可 */
+    }
   };
 
   return (

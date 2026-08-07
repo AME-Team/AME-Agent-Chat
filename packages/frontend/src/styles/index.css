@@ -115,6 +115,7 @@
   color: #8b949e;
 }
 .dark .md-body .hljs-keyword,
+.dark .md-body .hljs-selector-tag,
 .dark .md-body .hljs-built_in {
   color: #ff7b72;
 }
