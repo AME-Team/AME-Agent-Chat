@@ -68,3 +68,68 @@
     font-family: var(--font-ui);
   }
 }
+
+/*
+ * シンタックスハイライト (rehype-highlight) — ame-ui 配色に調整
+ * highlight.js テーマは読み込まず、トークン色を CSS 変数で制御(ライト/ダーク切替追従)
+ */
+.md-body .hljs {
+  color: var(--md-text, #1f2328);
+}
+.md-body .hljs-comment,
+.md-body .hljs-quote {
+  color: #6a737d;
+  font-style: italic;
+}
+.md-body .hljs-keyword,
+.md-body .hljs-selector-tag,
+.md-body .hljs-built_in {
+  color: #cf222e;
+}
+.md-body .hljs-string,
+.md-body .hljs-attr {
+  color: #0a3069;
+}
+.md-body .hljs-number,
+.md-body .hljs-literal {
+  color: #0550ae;
+}
+.md-body .hljs-title,
+.md-body .hljs-function .hljs-title,
+.md-body .hljs-section {
+  color: #8250df;
+}
+.md-body .hljs-type,
+.md-body .hljs-class .hljs-title {
+  color: #953800;
+}
+.md-body .hljs-variable,
+.md-body .hljs-template-variable {
+  color: #24292f;
+}
+.dark .md-body .hljs {
+  color: #c9d1d9;
+}
+.dark .md-body .hljs-comment,
+.dark .md-body .hljs-quote {
+  color: #8b949e;
+}
+.dark .md-body .hljs-keyword,
+.dark .md-body .hljs-built_in {
+  color: #ff7b72;
+}
+.dark .md-body .hljs-string,
+.dark .md-body .hljs-attr {
+  color: #a5d6ff;
+}
+.dark .md-body .hljs-number,
+.dark .md-body .hljs-literal {
+  color: #79c0ff;
+}
+.dark .md-body .hljs-title,
+.dark .md-body .hljs-section {
+  color: #d2a8ff;
+}
+.dark .md-body .hljs-type {
+  color: #ffa657;
+}
