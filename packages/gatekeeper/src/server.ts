@@ -13,6 +13,7 @@ import { createSessionRepo, type SessionSort } from './db/repos/sessions.js';
 import { createMessageRepo } from './db/repos/messages.js';
 import { createSettingsRepo } from './db/repos/settings.js';
 import { createApprovalRepo, type ApprovalStatus } from './db/repos/approvals.js';
+import { createUsageRepo } from './db/repos/usage.js';
 import { classify, workspaceRoot } from './policy.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
@@ -22,6 +23,7 @@ export function createApp(db: Db): Hono {
   const messages = createMessageRepo(db);
   const settings = createSettingsRepo(db);
   const approvals = createApprovalRepo(db);
+  const usage = createUsageRepo(db);
 
   const app = new Hono();
   app.use('*', logger());
@@ -189,6 +191,25 @@ export function createApp(db: Db): Hono {
   app.get('/api/approvals/history', async (c) =>
     c.json(await approvals.history(Number(c.req.query('limit') ?? 50))),
   );
+
+  // ---- usage (要件 #1 §3.2.5 / #27) ----
+  app.post('/api/usage', async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    if (typeof body.provider !== 'string' || typeof body.model !== 'string') {
+      return c.json({ error: 'provider and model are required' }, 400);
+    }
+    await usage.record({
+      sessionId: typeof body.sessionId === 'string' ? body.sessionId : undefined,
+      provider: body.provider,
+      model: body.model,
+      inputTokens: Number(body.inputTokens ?? 0),
+      outputTokens: Number(body.outputTokens ?? 0),
+      cost: Number(body.cost ?? 0),
+    });
+    return c.json({ ok: true }, 201);
+  });
+
+  app.get('/api/usage', async (c) => c.json(await usage.aggregate()));
 
   app.notFound((c) => c.json({ error: 'Not Found' }, 404));
   app.onError((err, c) => {

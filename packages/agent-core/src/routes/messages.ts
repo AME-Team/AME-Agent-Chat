@@ -132,6 +132,35 @@ export function registerMessageRoutes(app: Hono): void {
     return c.json(data.filter((p): p is string => typeof p === 'string'));
   });
 
+  // OGP リンクプレビュー (#2 §4.2) — サーバサイドで og:* タグを取得 (CORS 回避)
+  app.get('/api/ogp', async (c) => {
+    const url = c.req.query('url') ?? '';
+    if (!url || !/^https?:\/\//.test(url)) return c.json({ error: 'invalid url' }, 400);
+    try {
+      const res = await fetch(url, {
+        headers: { 'user-agent': 'Mozilla/5.0 (compatible; AME-Agent-Chat/1.0)' },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) return c.json({ error: 'fetch failed' }, 502);
+      const html = await res.text();
+      const og = (key: string) =>
+        html.match(
+          new RegExp(`<meta[^>]+property=["']og:${key}["'][^>]+content=["']([^"']+)["']`),
+        )?.[1] ??
+        html.match(
+          new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:${key}["']`),
+        )?.[1];
+      return c.json({
+        url,
+        title: og('title') ?? undefined,
+        description: og('description') ?? undefined,
+        image: og('image') ?? undefined,
+      });
+    } catch {
+      return c.json({ error: 'fetch failed' }, 502);
+    }
+  });
+
   app.post('/api/sessions/:id/abort', async (c) => {
     const id = c.req.param('id');
     const { data, error } = await api.session.abort({ path: { id } });

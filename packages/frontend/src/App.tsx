@@ -13,6 +13,8 @@ import { ApprovalDialog } from './components/ApprovalDialog';
 import { ModelSettingsDialog } from './components/SettingsDialog';
 import { ApprovalHistoryDialog } from './components/ApprovalHistoryDialog';
 import { AuthDialog } from './components/AuthDialog';
+import { UsageDialog } from './components/UsageDialog';
+import { PreviewDialog } from './components/PreviewDialog';
 import { useApp } from './store/app';
 import { useUI } from './store/ui';
 import { connectEvents, disconnectEvents } from './lib/sse';
@@ -62,6 +64,8 @@ export function App() {
       <ModelSettingsDialog />
       <ApprovalHistoryDialog />
       <AuthDialog />
+      <UsageDialog />
+      <PreviewDialog />
     </div>
   );
 }

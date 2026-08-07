@@ -3,6 +3,7 @@
  * テーマ切替・1ポイントカラー切替・言語切替の基本操作。
  */
 import { HelpCircle, Monitor, Moon, Settings, ShieldCheck, Sun } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { cn } from '../lib/cn';
 import { useApp } from '../store/app';
@@ -35,6 +36,7 @@ export function Header() {
   const setLocale = useApp((s) => s.setLocale);
   const setSettingsOpen = useUI((s) => s.setSettingsOpen);
   const setApprovalHistoryOpen = useUI((s) => s.setApprovalHistoryOpen);
+  const setUsageOpen = useUI((s) => s.setUsageOpen);
 
   const cycleTheme = () => {
     const order: Theme[] = ['light', 'dark', 'system'];
@@ -83,6 +85,14 @@ export function Header() {
           <option value="ja">JA</option>
           <option value="en">EN</option>
         </select>
+        <button
+          type="button"
+          onClick={() => setUsageOpen(true)}
+          aria-label={t('usage.title')}
+          className="flex size-8 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
+          <BarChart3 className="size-4" />
+        </button>
         <button
           type="button"
           onClick={() => setApprovalHistoryOpen(true)}

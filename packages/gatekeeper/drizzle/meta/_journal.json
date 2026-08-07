@@ -15,6 +15,13 @@
       "when": 1786075387458,
       "tag": "0001_graceful_zarda",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786082952673,
+      "tag": "0002_spicy_black_bolt",
+      "breakpoints": true
     }
   ]
 }
