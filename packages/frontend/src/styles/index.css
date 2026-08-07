@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * デザイントークン — ame-ui-philosophy §4 + ame-ui-typography §1
+ * 1ポイントカラー 5 プリセット (ライト/ダーク別値) を data-accent 属性で切替。
+ */
+:root {
+  --font-mono: 'Noto Sans Mono', 'Noto Sans JP', monospace;
+  --color-primary-foreground: #ffffff;
+}
+
+/* locale による UI フォント切替 (ame-ui-typography §2) */
+:root[data-locale='ja'] {
+  --font-ui: 'Noto Sans JP', sans-serif;
+  --font-ui-serif: 'Noto Serif JP', serif;
+}
+:root[data-locale='en'] {
+  --font-ui: 'Noto Sans', sans-serif;
+  --font-ui-serif: 'Noto Serif', serif;
+}
+
+/* 1ポイントカラー 5 プリセット — Light (ame-ui-philosophy §4.2) */
+:root[data-accent='trust-blue'] {
+  --color-primary: #005b99;
+}
+:root[data-accent='stable-green'] {
+  --color-primary: #2d6a4f;
+}
+:root[data-accent='grounded-orange'] {
+  --color-primary: #c2410c;
+}
+:root[data-accent='sophisticated-indigo'] {
+  --color-primary: #4338ca;
+}
+:root[data-accent='clarity-teal'] {
+  --color-primary: #0f766e;
+}
+
+/* Dark variants */
+.dark[data-accent='trust-blue'] {
+  --color-primary: #3b82c4;
+}
+.dark[data-accent='stable-green'] {
+  --color-primary: #4f8a6e;
+}
+.dark[data-accent='grounded-orange'] {
+  --color-primary: #dd6b3d;
+}
+.dark[data-accent='sophisticated-indigo'] {
+  --color-primary: #7c79e8;
+}
+.dark[data-accent='clarity-teal'] {
+  --color-primary: #2fa39a;
+}
+
+@layer base {
+  html {
+    @apply bg-white text-gray-900;
+  }
+  .dark html,
+  html.dark {
+    @apply bg-gray-900 text-gray-100;
+  }
+  body {
+    @apply min-h-screen antialiased;
+    font-family: var(--font-ui);
+  }
+}

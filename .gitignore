@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+
+# build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# env
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# review system sidecar deps
+.ame-review/engines-ts/node_modules/
+.ame-review/engines-ts/package-lock.json
+
+# sqlite
+*.db
+*.sqlite
+*.sqlite-journal
+
+# misc
+coverage/
+.cache/

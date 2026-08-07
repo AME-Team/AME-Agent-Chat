@@ -1,0 +1,27 @@
+{
+  "name": "ame-agent-chat",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "AI Agent (OpenCode) をリッチな UI で安全・低コスト運用する Windows 専用ローカル開発環境",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.19.1"
+  }
+}
