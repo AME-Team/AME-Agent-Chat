@@ -77,6 +77,22 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ command, arguments: args }),
       }),
+    revert: (id: string, messageID: string) =>
+      request(`/api/sessions/${id}/revert`, {
+        method: 'POST',
+        body: JSON.stringify({ messageID }),
+      }),
+    unrevert: (id: string) => request(`/api/sessions/${id}/unrevert`, { method: 'POST' }),
+    diff: (id: string) => request<unknown[]>(`/api/sessions/${id}/diff`),
+  },
+
+  auth: {
+    providers: () =>
+      request<{ providers: unknown[]; authMethods: Record<string, unknown[]> }>(
+        '/api/auth/providers',
+      ),
+    login: (provider: string, method = 0) =>
+      request(`/api/auth/login`, { method: 'POST', body: JSON.stringify({ provider, method }) }),
   },
 
   permissions: {

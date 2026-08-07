@@ -73,6 +73,9 @@ export async function executeCommand(name: string, args: string): Promise<void> 
     case '/help':
       ui.setHelpOpen(true);
       return;
+    case '/connect':
+      ui.setAuthOpen(true);
+      return;
     case '/theme': {
       const order: Theme[] = ['light', 'dark', 'system'];
       const next = order[(order.indexOf(app.theme) + 1) % order.length];
@@ -106,6 +109,43 @@ export async function executeCommand(name: string, args: string): Promise<void> 
       }
       try {
         await api.messages.command(app.currentId, name.slice(1), args);
+        ui.pushToast(tr('command.executed', { label }), 'success');
+      } catch {
+        ui.pushToast(tr('command.executeFailed', { label }), 'error');
+      }
+      return;
+    }
+    case '/undo': {
+      if (!app.currentId) {
+        ui.pushToast(tr('command.selectSession'), 'error');
+        return;
+      }
+      try {
+        // 直前のユーザーメッセージへ revert (以降の生成を破棄・ファイル変更を含む元に戻す)
+        const entries = (await api.messages.list(app.currentId)) as Array<{
+          info: { id: string; role: string };
+        }>;
+        const lastUser = [...entries].reverse().find((e) => e.info.role === 'user');
+        if (!lastUser) {
+          ui.pushToast(tr('command.noRevertTarget'), 'info');
+          return;
+        }
+        await api.messages.revert(app.currentId, lastUser.info.id);
+        await app.loadMessages(app.currentId);
+        ui.pushToast(tr('command.executed', { label }), 'success');
+      } catch {
+        ui.pushToast(tr('command.executeFailed', { label }), 'error');
+      }
+      return;
+    }
+    case '/redo': {
+      if (!app.currentId) {
+        ui.pushToast(tr('command.selectSession'), 'error');
+        return;
+      }
+      try {
+        await api.messages.unrevert(app.currentId);
+        await app.loadMessages(app.currentId);
         ui.pushToast(tr('command.executed', { label }), 'success');
       } catch {
         ui.pushToast(tr('command.executeFailed', { label }), 'error');
