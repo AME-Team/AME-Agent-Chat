@@ -14,16 +14,35 @@ import { ModelSettingsDialog } from './components/SettingsDialog';
 import { ApprovalHistoryDialog } from './components/ApprovalHistoryDialog';
 import { AuthDialog } from './components/AuthDialog';
 import { useApp } from './store/app';
+import { useUI } from './store/ui';
 import { connectEvents, disconnectEvents } from './lib/sse';
+import { requestNotifyPermission } from './lib/notify';
 
 export function App() {
   const loadSessions = useApp((s) => s.loadSessions);
+  const createSession = useApp((s) => s.createSession);
 
   useEffect(() => {
     void loadSessions();
     connectEvents();
+    requestNotifyPermission();
     return () => disconnectEvents();
   }, [loadSessions]);
+
+  // キーボードショートカット (要件 #2 §9.1, §9.4)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        void createSession();
+      }
+      if (e.key === '?') {
+        useUI.getState().setHelpOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [createSession]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">

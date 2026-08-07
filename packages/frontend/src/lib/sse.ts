@@ -6,6 +6,7 @@
  */
 import { useApp } from '../store/app';
 import { useUI, type PendingPermission } from '../store/ui';
+import { notifyCompletion } from './notify';
 
 let source: EventSource | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -28,6 +29,8 @@ export function connectEvents(): void {
         };
         // ポリシーで自動処理された(allow/deny)イベントはダイアログを出さない (#13)
         if (p.__autoHandled) return;
+        // 承認要求は非フォーカス時に通知 (#2 §9.2)
+        notifyCompletion('承認が必要な操作があります');
         useUI.getState().enqueuePermission({
           id: p.id,
           sessionId: p.sessionID ?? p.sessionId,
@@ -39,6 +42,9 @@ export function connectEvents(): void {
           policy: p.policy ?? p.__policy,
         });
         return;
+      }
+      if (type === 'session.idle') {
+        notifyCompletion('セッションの処理が完了しました');
       }
       apply(type, JSON.parse(ev.data));
     } catch {

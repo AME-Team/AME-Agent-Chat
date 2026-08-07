@@ -77,10 +77,15 @@ export const api = {
 
   messages: {
     list: (id: string) => request<unknown[]>(`/api/sessions/${id}/messages`),
-    send: (id: string, text: string, model?: { providerID: string; modelID: string }) =>
+    send: (
+      id: string,
+      text: string,
+      model?: { providerID: string; modelID: string },
+      attachments?: Array<{ mime: string; url: string; filename?: string }>,
+    ) =>
       request(`/api/sessions/${id}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ text, model }),
+        body: JSON.stringify({ text, model, attachments }),
       }),
     abort: (id: string) =>
       request<{ ok: boolean }>(`/api/sessions/${id}/abort`, { method: 'POST' }),
@@ -96,6 +101,17 @@ export const api = {
       }),
     unrevert: (id: string) => request(`/api/sessions/${id}/unrevert`, { method: 'POST' }),
     diff: (id: string) => request<unknown[]>(`/api/sessions/${id}/diff`),
+    /** !Bash: サンドボックス内でコマンド実行 (#2 §3.3) */
+    bash: (id: string, command: string) =>
+      request<{ bash: { command: string; output: unknown } }>(`/api/sessions/${id}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ text: `!${command}` }),
+      }),
+  },
+
+  files: {
+    /** @ファイル参照のあいまい検索 (#2 §3.3) */
+    search: (q: string) => request<string[]>(`/api/files?q=${encodeURIComponent(q)}`),
   },
 
   auth: {
