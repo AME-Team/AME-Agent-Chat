@@ -303,10 +303,10 @@ export const useApp = create<AppState>((set, get) => ({
     }
     // 編集メッセージ以降を切り捨てて新しい内容を送信
     const idx = messages.findIndex((m) => m.id === messageId);
-    set((st) => ({
-      messages: [...st.messages.slice(0, idx), { ...target, text: newText }],
-    }));
+    set((st) => ({ messages: [...st.messages.slice(0, idx), { ...target, text: newText }] }));
     await api.messages.send(currentId, newText);
+    // バックエンドと状態を再同期 (revert 不可のケースでも旧メッセージが復活しないように)
+    await get().loadMessages(currentId);
   },
 
   applySSE: (event, properties) => {

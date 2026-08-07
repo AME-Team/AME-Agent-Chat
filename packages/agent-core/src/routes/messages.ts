@@ -10,6 +10,7 @@
  *  - POST  /api/sessions/:id/init            /init (#2 §6)
  */
 import type { Hono } from 'hono';
+import { lookup } from 'node:dns/promises';
 import { getOpencodeClient } from '../opencode.js';
 import { env } from '../env.js';
 import { resolveTaskModel, shouldCompact } from '../router.js';
@@ -133,9 +134,10 @@ export function registerMessageRoutes(app: Hono): void {
   });
 
   // OGP リンクプレビュー (#2 §4.2) — サーバサイドで og:* タグを取得 (CORS 回避)
+  //  ※ SSRF 対策: プライベート/ループバック/予約レンジへのアクセスを禁止
   app.get('/api/ogp', async (c) => {
     const url = c.req.query('url') ?? '';
-    if (!url || !/^https?:\/\//.test(url)) return c.json({ error: 'invalid url' }, 400);
+    if (!url || !(await isSafeOgpUrl(url))) return c.json({ error: 'url not allowed' }, 400);
     try {
       const res = await fetch(url, {
         headers: { 'user-agent': 'Mozilla/5.0 (compatible; AME-Agent-Chat/1.0)' },
@@ -194,4 +196,35 @@ export function registerMessageRoutes(app: Hono): void {
     if (error) return c.json({ error }, 500);
     return c.json(data);
   });
+}
+
+/** プライベート/ループバック/予約 IP 判定 (SSRF 対策) */
+function isPrivateIp(ip: string): boolean {
+  if (ip.startsWith('127.') || ip.startsWith('10.') || ip.startsWith('192.168.') || ip.startsWith('169.254.')) {
+    return true;
+  }
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) return true;
+  if (ip === '::1' || ip.startsWith('fc') || ip.startsWith('fd')) return true; // loopback / fc00::/7
+  if (ip.startsWith('fe80:')) return true; // link-local
+  return false;
+}
+
+/** OGP 取得対象として安全な URL か (スキーマ + ホスト名/IP 検証) */
+async function isSafeOgpUrl(raw: string): Promise<boolean> {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  const host = u.hostname.toLowerCase();
+  if (host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal')) return false;
+  try {
+    const records = await lookup(host, { all: true });
+    return records.length > 0 && records.every((r) => !isPrivateIp(r.address));
+  } catch {
+    return false;
+  }
+}
 }
