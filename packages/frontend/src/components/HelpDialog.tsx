@@ -7,17 +7,17 @@ import { useI18n } from '../lib/i18n';
 import { useUI } from '../store/ui';
 import { SLASH_COMMANDS } from '../lib/commands';
 
-const SHORTCUTS: Array<{ key: string; desc: string }> = [
-  { key: 'Enter', desc: '送信' },
-  { key: 'Shift + Enter', desc: '改行' },
-  { key: '↑ / ↓', desc: '入力履歴' },
-  { key: '/', desc: 'コマンド呼び出し' },
-];
-
 export function HelpDialog() {
   const { t } = useI18n();
   const open = useUI((s) => s.helpOpen);
   const setOpen = useUI((s) => s.setHelpOpen);
+
+  const shortcuts: Array<{ key: string; desc: string }> = [
+    { key: 'Enter', desc: t('shortcut.send') },
+    { key: 'Shift + Enter', desc: t('shortcut.newline') },
+    { key: '↑ / ↓', desc: t('shortcut.commandSelect') },
+    { key: '/', desc: t('shortcut.invoke') },
+  ];
 
   if (!open) return null;
 
@@ -45,10 +45,10 @@ export function HelpDialog() {
         </div>
 
         <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-          ショートカット
+          {t('help.shortcuts')}
         </h3>
         <ul className="mb-6 space-y-1">
-          {SHORTCUTS.map((s) => (
+          {shortcuts.map((s) => (
             <li key={s.key} className="flex items-center justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">{s.desc}</span>
               <kbd className="rounded border border-gray-200 px-2 py-0.5 text-xs dark:border-gray-600">
@@ -58,7 +58,9 @@ export function HelpDialog() {
           ))}
         </ul>
 
-        <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">コマンド</h3>
+        <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+          {t('help.commands')}
+        </h3>
         <ul className="space-y-1">
           {SLASH_COMMANDS.map((c) => (
             <li key={c.name} className="flex items-start gap-2 text-sm">

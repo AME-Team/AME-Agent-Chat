@@ -5,6 +5,7 @@
  */
 import { SLASH_COMMANDS, type SlashCommand } from '@ame-agent-chat/shared';
 import { api } from './api';
+import { translate } from './i18n';
 import { useApp } from '../store/app';
 import { useUI } from '../store/ui';
 import type { Theme } from '@ame-agent-chat/shared';
@@ -12,12 +13,26 @@ import type { Theme } from '@ame-agent-chat/shared';
 export { SLASH_COMMANDS };
 export type { SlashCommand };
 
+/** 現在 locale で翻訳(プレースホルダ {key} 補間) — ame-ui-philosophy §8 */
+function tr(key: string, vars?: Record<string, string>): string {
+  const s = translate(useApp.getState().locale, key);
+  return vars ? s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '') : s;
+}
+
 /** 入力がコマンドか。`/` 始まりで第1トークを返す */
 export function parseCommand(input: string): { name: string; args: string } | null {
   const trimmed = input.trim();
   if (!trimmed.startsWith('/')) return null;
   const [name, ...rest] = trimmed.slice(1).split(/\s+/);
   return { name: `/${name}`, args: rest.join(' ') };
+}
+
+/** 入力からコマンド候補を算出 (未確定コマンド入力時のサジェスト用) */
+export function matchCommands(query: string): SlashCommand[] {
+  const q = query.toLowerCase();
+  return SLASH_COMMANDS.filter(
+    (c) => c.name.startsWith(q) || c.aliases?.some((a) => a.startsWith(q)),
+  ).slice(0, 8);
 }
 
 /** /export: セッション内容を Markdown でダウンロード (要件 #2 §2.4) */
@@ -51,7 +66,7 @@ export async function executeCommand(name: string, args: string): Promise<void> 
     case '/new':
     case '/clear':
       await app.createSession();
-      ui.pushToast('新規セッションを作成しました', 'success');
+      ui.pushToast(tr('command.newCreated'), 'success');
       return;
     case '/help':
       ui.setHelpOpen(true);
@@ -60,39 +75,42 @@ export async function executeCommand(name: string, args: string): Promise<void> 
       const order: Theme[] = ['light', 'dark', 'system'];
       const next = order[(order.indexOf(app.theme) + 1) % order.length];
       app.setTheme(next);
-      ui.pushToast(`テーマ: ${next}`, 'info');
+      ui.pushToast(tr('command.theme', { theme: next }), 'info');
       return;
     }
     case '/thinking':
       ui.toggleThinking();
-      ui.pushToast(`思考ブロック表示: ${useUI.getState().showThinking ? 'ON' : 'OFF'}`, 'info');
+      ui.pushToast(
+        useUI.getState().showThinking ? tr('command.thinkingOn') : tr('command.thinkingOff'),
+        'info',
+      );
       return;
     case '/sessions':
-      ui.pushToast('サイドバーからセッションを選択できます', 'info');
+      ui.pushToast(tr('command.sessions'), 'info');
       return;
     case '/models':
-      ui.pushToast('モデル/ティア設定は Effort プリセット (#16/#17) で対応予定', 'info');
+      ui.pushToast(tr('command.models'), 'info');
       return;
     case '/export':
       exportMarkdown();
-      ui.pushToast('Markdown エクスポートしました', 'success');
+      ui.pushToast(tr('command.exported'), 'success');
       return;
     case '/compact':
     case '/summarize':
     case '/init': {
       if (!app.currentId) {
-        ui.pushToast('セッションを選択してください', 'error');
+        ui.pushToast(tr('command.selectSession'), 'error');
         return;
       }
       try {
         await api.messages.command(app.currentId, name.slice(1), args);
-        ui.pushToast(`${label} を実行しました`, 'success');
+        ui.pushToast(tr('command.executed', { label }), 'success');
       } catch {
-        ui.pushToast(`${label} の実行に失敗しました`, 'error');
+        ui.pushToast(tr('command.executeFailed', { label }), 'error');
       }
       return;
     }
     default:
-      ui.pushToast(`${label} は今後対応予定です`, 'info');
+      ui.pushToast(tr('command.upcoming', { label }), 'info');
   }
 }

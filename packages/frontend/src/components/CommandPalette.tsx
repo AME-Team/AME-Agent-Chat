@@ -1,54 +1,25 @@
 /**
- * スラッシュコマンドサジェスト (要件 #2 §6 コマンドパレット・サジェスト付き)
- * 入力が `/` で始まる場合に候補を表示。
+ * スラッシュコマンドサジェスト (要件 #2 §6)
+ * 表示・マウス操作のみ担当。キーボード操作は親(MessageInput)で制御(二重実行回避)。
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { SLASH_COMMANDS } from '../lib/commands';
 import { cn } from '../lib/cn';
+import type { SlashCommand } from '@ame-agent-chat/shared';
 
 export function CommandPalette({
-  query,
+  matches,
+  active,
+  onActiveChange,
   onPick,
 }: {
-  query: string;
+  matches: SlashCommand[];
+  active: number;
+  onActiveChange: (i: number) => void;
   onPick: (name: string) => void;
 }) {
-  const matches = useMemo(() => {
-    const q = query.toLowerCase();
-    return SLASH_COMMANDS.filter(
-      (c) => c.name.startsWith(q) || c.aliases?.some((a) => a.startsWith(q)),
-    ).slice(0, 8);
-  }, [query]);
-
-  const [active, setActive] = useState(0);
-  const listRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setActive(0);
-  }, [query]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setActive((a) => Math.min(a + 1, matches.length - 1));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setActive((a) => Math.max(a - 1, 0));
-      } else if (e.key === 'Enter' && matches[active]) {
-        e.preventDefault();
-        onPick(matches[active].name);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [matches, active, onPick]);
-
   if (matches.length === 0) return null;
 
   return (
     <div
-      ref={listRef}
       className="absolute bottom-full left-0 mb-2 w-72 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-md dark:border-gray-700 dark:bg-gray-800"
       role="listbox"
     >
@@ -58,7 +29,7 @@ export function CommandPalette({
           type="button"
           role="option"
           aria-selected={i === active}
-          onMouseEnter={() => setActive(i)}
+          onMouseEnter={() => onActiveChange(i)}
           onClick={() => onPick(c.name)}
           className={cn(
             'flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors duration-150',

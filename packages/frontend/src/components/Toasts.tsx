@@ -19,11 +19,10 @@ export function Toasts() {
           onClick={() => dismiss(t.id)}
           className={cn(
             'pointer-events-auto flex items-center gap-2 rounded-md px-4 py-2 text-sm text-white shadow-md transition-opacity duration-300',
-            t.tone === 'success' && 'bg-stable-green',
+            t.tone === 'success' && 'bg-green-600',
             t.tone === 'error' && 'bg-red-600',
             t.tone === 'info' && 'bg-gray-800 dark:bg-gray-700',
           )}
-          style={t.tone === 'success' ? { background: '#2D6A4F' } : undefined}
         >
           {t.tone === 'success' && <CheckCircle2 className="size-4 shrink-0" />}
           {t.tone === 'error' && <XCircle className="size-4 shrink-0" />}
