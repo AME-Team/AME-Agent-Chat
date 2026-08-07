@@ -200,7 +200,12 @@ export function registerMessageRoutes(app: Hono): void {
 
 /** プライベート/ループバック/予約 IP 判定 (SSRF 対策) */
 function isPrivateIp(ip: string): boolean {
-  if (ip.startsWith('127.') || ip.startsWith('10.') || ip.startsWith('192.168.') || ip.startsWith('169.254.')) {
+  if (
+    ip.startsWith('127.') ||
+    ip.startsWith('10.') ||
+    ip.startsWith('192.168.') ||
+    ip.startsWith('169.254.')
+  ) {
     return true;
   }
   if (/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) return true;
@@ -226,5 +231,4 @@ async function isSafeOgpUrl(raw: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
 }
