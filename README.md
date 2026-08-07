@@ -41,6 +41,7 @@ docker compose down
 
 - `CORS_ORIGIN` / `WORKSPACE_DIR` は環境変数で上書き可能
 - OpenCode Server(40960) はコンテナ内のみ（非公開）
+- ※コンテナは `node`(uid 1000) で実行。Linux ホストの場合は `WORKSPACE_DIR` の所有 uid を 1000 に合わせること（Windows Docker Desktop は自動解決）
 
 ## スクリプト
 
