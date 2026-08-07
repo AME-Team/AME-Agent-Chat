@@ -39,6 +39,18 @@ const ja: Dict = {
   'command.upcoming': '{label} は今後対応予定です',
   'code.copy': 'コピー',
   'code.copied': 'コピーしました',
+  'sidebar.pin': 'ピン留め',
+  'sidebar.unpin': 'ピン解除',
+  'sidebar.duplicate': '複製',
+  'sidebar.rename': '名前を変更',
+  'sidebar.delete': '削除',
+  'sidebar.sort.updated': '更新順',
+  'sidebar.sort.created': '作成順',
+  'sidebar.sort.name': '名前順',
+  'sidebar.confirmDeleteTitle': 'セッションを削除しますか？',
+  'sidebar.confirmDeleteBody': 'この操作は取り消せません。',
+  'common.cancel': 'キャンセル',
+  'common.delete': '削除',
 };
 
 const en: Dict = {
@@ -73,6 +85,18 @@ const en: Dict = {
   'command.upcoming': '{label} is coming soon',
   'code.copy': 'Copy',
   'code.copied': 'Copied',
+  'sidebar.pin': 'Pin',
+  'sidebar.unpin': 'Unpin',
+  'sidebar.duplicate': 'Duplicate',
+  'sidebar.rename': 'Rename',
+  'sidebar.delete': 'Delete',
+  'sidebar.sort.updated': 'Updated',
+  'sidebar.sort.created': 'Created',
+  'sidebar.sort.name': 'Name',
+  'sidebar.confirmDeleteTitle': 'Delete session?',
+  'sidebar.confirmDeleteBody': 'This cannot be undone.',
+  'common.cancel': 'Cancel',
+  'common.delete': 'Delete',
 };
 
 const DICTS: Record<Locale, Dict> = { ja, en };

@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand';
 import { api, type AppSession } from '../lib/api';
-import type { AccentColor, Locale, Theme } from '@ame-agent-chat/shared';
+import type { AccentColor, Locale, SessionSortOrder, Theme } from '@ame-agent-chat/shared';
 
 export interface AppMessage {
   id: string;
@@ -33,11 +33,18 @@ interface AppState {
   // sessions
   sessions: AppSession[];
   currentId: string | null;
+  /** ピン留めしたセッション ID (localStorage 永続化) — #2 §2.3 */
+  pinned: string[];
+  /** 並び替え基準 (更新順/作成順/名前順) — #2 §2.3 */
+  sortOrder: SessionSortOrder;
   loadSessions: () => Promise<void>;
   createSession: () => Promise<string>;
   selectSession: (id: string) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
   renameSession: (id: string, title: string) => Promise<void>;
+  duplicateSession: (id: string) => Promise<string>;
+  togglePin: (id: string) => void;
+  setSortOrder: (order: SessionSortOrder) => void;
 
   // messages
   messages: AppMessage[];
@@ -101,6 +108,8 @@ export const useApp = create<AppState>((set, get) => ({
 
   sessions: [],
   currentId: null,
+  pinned: JSON.parse(localStorage.getItem('pinned') ?? '[]') as string[],
+  sortOrder: (localStorage.getItem('sortOrder') as SessionSortOrder) ?? 'updated',
 
   loadSessions: async () => {
     try {
@@ -126,14 +135,44 @@ export const useApp = create<AppState>((set, get) => ({
     await api.sessions.remove(id);
     set((st) => ({
       sessions: st.sessions.filter((s) => s.id !== id),
+      pinned: st.pinned.filter((p) => p !== id),
       currentId: st.currentId === id ? null : st.currentId,
       messages: st.currentId === id ? [] : st.messages,
     }));
+    localStorage.setItem('pinned', JSON.stringify(get().pinned));
   },
 
   renameSession: async (id, title) => {
     const s = await api.sessions.update(id, title);
     set((st) => ({ sessions: st.sessions.map((x) => (x.id === id ? s : x)) }));
+  },
+
+  duplicateSession: async (id) => {
+    // メッセージ内容もコピーするため最終メッセージ地点でフォーク (#2 §2.1)
+    const entries = (await api.messages.list(id)) as OCMessageEntry[];
+    const lastID = entries.at(-1)?.info.id;
+    const copy = await api.sessions.fork(id, lastID);
+    await api.sessions.update(copy.id, `${copy.title} (copy)`);
+    const renamed = await api.sessions.list();
+    const session = renamed.find((s) => s.id === copy.id) ?? copy;
+    set((st) => ({ sessions: [session, ...st.sessions], currentId: session.id, messages: [] }));
+    await get().loadMessages(session.id);
+    return session.id;
+  },
+
+  togglePin: (id) => {
+    set((st) => {
+      const pinned = st.pinned.includes(id)
+        ? st.pinned.filter((p) => p !== id)
+        : [...st.pinned, id];
+      localStorage.setItem('pinned', JSON.stringify(pinned));
+      return { pinned };
+    });
+  },
+
+  setSortOrder: (order) => {
+    localStorage.setItem('sortOrder', order);
+    set({ sortOrder: order });
   },
 
   messages: [],
@@ -156,8 +195,16 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   sendMessage: async (text) => {
-    const { currentId, createSession, messages } = get();
+    const { currentId, createSession, messages, sessions } = get();
     const id = currentId ?? (await createSession());
+    // タイトル自動生成: 空/スラッグ相当タイトルの新規セッションは初回メッセージから命名 (#2 §2.2)
+    const session = sessions.find((s) => s.id === id);
+    if (session && /^[a-z0-9-]+$/.test(session.title)) {
+      const title = text.replace(/\s+/g, ' ').trim().slice(0, 30) || 'New Chat';
+      void api.sessions.update(id, title).then((s) => {
+        set((st) => ({ sessions: st.sessions.map((x) => (x.id === id ? s : x)) }));
+      });
+    }
     // 楽観的なユーザーメッセージ (要件 #2 §4.3 Streaming 前の即時表示)
     const optimistic: AppMessage = {
       id: `local-${Date.now()}`,

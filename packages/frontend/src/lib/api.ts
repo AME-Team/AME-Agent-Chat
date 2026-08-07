@@ -55,6 +55,12 @@ export const api = {
         body: JSON.stringify({ title }),
       }).then(toAppSession),
     remove: (id: string) => request<{ ok: boolean }>(`/api/sessions/${id}`, { method: 'DELETE' }),
+    /** セッション複製 (#2 §2.1) — messageID 地点でフォーク */
+    fork: (id: string, messageID?: string) =>
+      request<OpencodeSession>(`/api/sessions/${id}/fork`, {
+        method: 'POST',
+        body: JSON.stringify({ messageID }),
+      }).then(toAppSession),
   },
 
   messages: {

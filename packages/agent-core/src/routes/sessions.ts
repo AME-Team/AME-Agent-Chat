@@ -53,4 +53,16 @@ export function registerSessionRoutes(app: Hono): void {
     if (error) return c.json({ error }, 500);
     return c.json({ ok: true });
   });
+
+  // セッション複製 (#2 §2.1): 指定 messageID 地点でフォーク(メッセージコピー)。未指定は空複製
+  app.post('/api/sessions/:id/fork', async (c) => {
+    const id = c.req.param('id');
+    const body = await c.req.json().catch(() => ({}));
+    const { data, error } = await api.session.fork({
+      path: { id },
+      body: { messageID: typeof body.messageID === 'string' ? body.messageID : undefined },
+    });
+    if (error) return c.json({ error }, 500);
+    return c.json(data, 201);
+  });
 }
