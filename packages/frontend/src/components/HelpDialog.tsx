@@ -1,0 +1,73 @@
+/**
+ * ヘルプダイアログ (要件 #2 §6 /help, §9.1 チートシート)
+ * コマンド一覧 + ショートカットキーを表示。
+ */
+import { X } from 'lucide-react';
+import { useI18n } from '../lib/i18n';
+import { useUI } from '../store/ui';
+import { SLASH_COMMANDS } from '../lib/commands';
+
+const SHORTCUTS: Array<{ key: string; desc: string }> = [
+  { key: 'Enter', desc: '送信' },
+  { key: 'Shift + Enter', desc: '改行' },
+  { key: '↑ / ↓', desc: '入力履歴' },
+  { key: '/', desc: 'コマンド呼び出し' },
+];
+
+export function HelpDialog() {
+  const { t } = useI18n();
+  const open = useUI((s) => s.helpOpen);
+  const setOpen = useUI((s) => s.setHelpOpen);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={() => setOpen(false)}
+    >
+      <div
+        className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 dark:bg-gray-800"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold">{t('header.help')}</h2>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="close"
+            className="flex size-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+          ショートカット
+        </h3>
+        <ul className="mb-6 space-y-1">
+          {SHORTCUTS.map((s) => (
+            <li key={s.key} className="flex items-center justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">{s.desc}</span>
+              <kbd className="rounded border border-gray-200 px-2 py-0.5 text-xs dark:border-gray-600">
+                {s.key}
+              </kbd>
+            </li>
+          ))}
+        </ul>
+
+        <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">コマンド</h3>
+        <ul className="space-y-1">
+          {SLASH_COMMANDS.map((c) => (
+            <li key={c.name} className="flex items-start gap-2 text-sm">
+              <span className="shrink-0 font-mono text-primary">{c.name}</span>
+              <span className="text-gray-600 dark:text-gray-400">{c.description}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
