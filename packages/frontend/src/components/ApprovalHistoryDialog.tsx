@@ -26,14 +26,22 @@ export function ApprovalHistoryDialog() {
   const setOpen = useUI((s) => s.setApprovalHistoryOpen);
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
+    setError(false);
     api.permissions
       .history(50)
-      .then((r) => setRows(r as HistoryRow[]))
-      .catch(() => setRows([]))
+      .then((r) => {
+        if (!Array.isArray(r)) throw new Error('invalid response');
+        setRows(r as HistoryRow[]);
+      })
+      .catch(() => {
+        setRows([]);
+        setError(true);
+      })
       .finally(() => setLoading(false));
   }, [open]);
 
@@ -64,7 +72,8 @@ export function ApprovalHistoryDialog() {
 
         <div className="flex-1 overflow-y-auto">
           {loading && <p className="text-sm text-gray-400">...</p>}
-          {!loading && rows.length === 0 && (
+          {!loading && error && <p className="text-sm text-red-600">{t('approval.failed')}</p>}
+          {!loading && !error && rows.length === 0 && (
             <p className="text-sm text-gray-400">{t('approval.historyEmpty')}</p>
           )}
           {rows.map((r) => (

@@ -56,18 +56,24 @@ export function MessageInput() {
   const [text, setText] = useState('');
   const [active, setActive] = useState(0);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const skipDraftRef = useRef(false);
   const busy = useApp((s) => s.busy);
   const sendMessage = useApp((s) => s.sendMessage);
   const abort = useApp((s) => s.abort);
   const currentId = useApp((s) => s.currentId);
 
-  // セッション切替時に下書きを復元 (要件 #2 §3.1 下書き保持)
+  // セッション切替時に下書きを復元 + 履歴位置リセット (要件 #2 §3.1)
   useEffect(() => {
     setText(currentId ? loadDraft(currentId) : '');
+    upIdx = -1;
   }, [currentId]);
 
-  // 下書きをセッション単位で永続化
+  // 下書きをセッション単位で永続化 (履歴ナビ中の置換は保存しない)
   useEffect(() => {
+    if (skipDraftRef.current) {
+      skipDraftRef.current = false;
+      return;
+    }
     if (currentId) saveDraft(currentId, text);
   }, [text, currentId]);
 
@@ -120,9 +126,13 @@ export function MessageInput() {
       }
     }
 
-    // 入力履歴の再利用 (要件 #2 §3.1) — カーソル位置にかかわらず単純に循環
+    // 入力履歴の再利用 (要件 #2 §3.1) — マルチライン編集を壊さないよう
+    // カーソルが先頭(↑)/末尾(↓)のときのみ履歴ナビへ (通常時はカーソル移動を優先)
     if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.shiftKey) {
       if (!currentId) return;
+      const caret = taRef.current?.selectionStart ?? 0;
+      const atBoundary = e.key === 'ArrowUp' ? caret === 0 : caret === text.length;
+      if (!atBoundary) return;
       const hist = loadHistory(currentId);
       if (hist.length === 0) return;
       e.preventDefault();
@@ -131,6 +141,7 @@ export function MessageInput() {
         Math.min(hist.length - 1, e.key === 'ArrowUp' ? upIdx + 1 : upIdx - 1),
       );
       upIdx = idx;
+      skipDraftRef.current = true;
       setText(hist[idx] ?? '');
       return;
     }
