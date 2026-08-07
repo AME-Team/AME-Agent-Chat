@@ -11,6 +11,7 @@ import { Toasts } from './components/Toasts';
 import { HelpDialog } from './components/HelpDialog';
 import { ApprovalDialog } from './components/ApprovalDialog';
 import { ModelSettingsDialog } from './components/SettingsDialog';
+import { ApprovalHistoryDialog } from './components/ApprovalHistoryDialog';
 import { useApp } from './store/app';
 import { connectEvents, disconnectEvents } from './lib/sse';
 
@@ -35,6 +36,7 @@ export function App() {
       <HelpDialog />
       <ApprovalDialog />
       <ModelSettingsDialog />
+      <ApprovalHistoryDialog />
     </div>
   );
 }

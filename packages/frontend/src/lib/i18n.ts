@@ -75,6 +75,13 @@ const ja: Dict = {
   'settings.saved': '設定を保存しました',
   'settings.saveFailed': '設定の保存に失敗しました',
   'header.settings': '設定',
+  'common.expand': '展開',
+  'common.collapse': '折りたたむ',
+  'message.pin': 'ピン留め',
+  'message.unpin': 'ピン解除',
+  'approval.history': '承認履歴',
+  'approval.historyEmpty': '履歴がありません',
+  'approval.historyOpen': '承認履歴',
 };
 
 const en: Dict = {
@@ -145,6 +152,13 @@ const en: Dict = {
   'settings.saved': 'Settings saved',
   'settings.saveFailed': 'Failed to save settings',
   'header.settings': 'Settings',
+  'common.expand': 'Expand',
+  'common.collapse': 'Collapse',
+  'message.pin': 'Pin',
+  'message.unpin': 'Unpin',
+  'approval.history': 'Approval History',
+  'approval.historyEmpty': 'No history',
+  'approval.historyOpen': 'Approval History',
 };
 
 const DICTS: Record<Locale, Dict> = { ja, en };
