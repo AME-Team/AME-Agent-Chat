@@ -23,6 +23,7 @@ repos:
     rev: v2.3.0
     hooks:
       - id: codespell
+        exclude: ^(pnpm-lock\.yaml|\.ame-review/engines-ts/)
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.21.0
@@ -42,29 +43,34 @@ repos:
 
   # =========================================================================
   # AME AI Review System — Gate 1 AI review hooks
+  # AI pre-commit review は `python -m ame_ai_review_system.*` を呼ぶ。
+  # 有効化する場合は本モジュールを system Python に導入すること:
+  #   pip install --break-system-packages <wheel>  (または venv 運用)
+  # PEP 668 環境では容易でないため、既定では AI レビューは Gate 2 (PR) に委ね、
+  # Gate 1 は静的解析のみ有効化している。
   # =========================================================================
-  - repo: local
-    hooks:
-      - id: ai-skip-guard
-        name: 'AI review skip guard (Issue #26)'
-        entry: python -m ame_ai_review_system.skip_guard
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-commit]
-
-      - id: ai-precommit-review
-        name: 'AI Code Review (pre-commit)'
-        entry: python -m ame_ai_review_system.precommit_review
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-commit]
-
-      - id: ai-review-state-reset
-        name: 'AI review state reset (post-commit)'
-        entry: python -m ame_ai_review_system.post_commit_reset
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [post-commit]
+  # - repo: local
+  #   hooks:
+  #     - id: ai-skip-guard
+  #       name: "AI review skip guard (Issue #26)"
+  #       entry: python -m ame_ai_review_system.skip_guard
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
+  #       stages: [pre-commit]
+  #
+  #     - id: ai-precommit-review
+  #       name: "AI Code Review (pre-commit)"
+  #       entry: python -m ame_ai_review_system.precommit_review
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
+  #       stages: [pre-commit]
+  #
+  #     - id: ai-review-state-reset
+  #       name: "AI review state reset (post-commit)"
+  #       entry: python -m ame_ai_review_system.post_commit_reset
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
+  #       stages: [post-commit]

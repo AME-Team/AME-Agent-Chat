@@ -1,0 +1,16 @@
+extends: default
+
+ignore: |
+  pnpm-lock\.yaml
+  \.ame-review/engines-ts/
+
+rules:
+  document-start: disable
+  line-length: disable
+  comments:
+    require-starting-space: false
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
