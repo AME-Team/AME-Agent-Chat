@@ -127,7 +127,7 @@ export async function executeCommand(name: string, args: string): Promise<void> 
         }>;
         const lastUser = [...entries].reverse().find((e) => e.info.role === 'user');
         if (!lastUser) {
-          ui.pushToast(tr('command.upcoming', { label }), 'info');
+          ui.pushToast(tr('command.noRevertTarget'), 'info');
           return;
         }
         await api.messages.revert(app.currentId, lastUser.info.id);

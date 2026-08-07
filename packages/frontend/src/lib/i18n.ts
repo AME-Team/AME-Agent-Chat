@@ -88,6 +88,8 @@ const ja: Dict = {
   'auth.empty': 'プロバイダーがありません',
   'auth.loginStarted': '認証を開始しました（ブラウザで完了してください）',
   'auth.loginFailed': '認証に失敗しました',
+  'auth.methods': '件の認証方法',
+  'command.noRevertTarget': '戻す対象のメッセージがありません',
 };
 
 const en: Dict = {
@@ -171,6 +173,8 @@ const en: Dict = {
   'auth.empty': 'No providers',
   'auth.loginStarted': 'Authentication started (complete in browser)',
   'auth.loginFailed': 'Authentication failed',
+  'auth.methods': 'auth methods',
+  'command.noRevertTarget': 'No message to revert to',
 };
 
 const DICTS: Record<Locale, Dict> = { ja, en };

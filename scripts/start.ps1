@@ -25,6 +25,7 @@ Write-Host "[3/5] Frontend (PWA) を起動..."
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$Root'; pnpm --filter @ame-agent-chat/frontend dev"
 
 Write-Host "[4/5] Agent コンテナを起動..."
+$env:WORKSPACE_DIR = $Root   # ワークスペースを bind mount へ (AGENTS.md の正規手順に整合)
 docker compose -f "$Root/docker-compose.yml" up -d --build
 
 Write-Host "[5/5] ヘルスチェック..."

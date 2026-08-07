@@ -44,11 +44,25 @@ export function AuthDialog() {
   const login = async (provider: string) => {
     setBusy(true);
     try {
-      await api.auth.login(provider);
+      const res = (await api.auth.login(provider)) as {
+        url?: string;
+        verification_uri?: string;
+      } | null;
+      const url = res?.url ?? res?.verification_uri;
+      if (url) window.open(url, '_blank', 'noopener');
       pushToast(t('auth.loginStarted'), 'success');
+      // 認証完了を反映 (短い待機後に再取得)
+      setTimeout(async () => {
+        try {
+          const r = await api.auth.providers();
+          setData({ providers: r.providers as ProviderInfo[], authMethods: r.authMethods });
+        } catch {
+          /* keep current */
+        }
+        setBusy(false);
+      }, 3000);
     } catch {
       pushToast(t('auth.loginFailed'), 'error');
-    } finally {
       setBusy(false);
     }
   };
@@ -90,7 +104,7 @@ export function AuthDialog() {
                 <span className="text-xs text-gray-400">
                   {p.authenticated
                     ? t('auth.authenticated')
-                    : `${(data.authMethods[p.id] ?? []).length} methods`}
+                    : `${(data.authMethods[p.id] ?? []).length} ${t('auth.methods')}`}
                 </span>
               </div>
               <button
