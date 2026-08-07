@@ -17,6 +17,15 @@ export interface AppMessage {
   streaming?: boolean;
 }
 
+/** プロセス可視化用のツール実行イベント (要件 #2 §8, #1 §3.1.4) */
+export interface ToolEvent {
+  id: string;
+  name: string;
+  state?: string;
+  input?: string;
+  time: number;
+}
+
 interface AppState {
   // settings
   theme: Theme;
@@ -48,6 +57,8 @@ interface AppState {
 
   // messages
   messages: AppMessage[];
+  /** プロセス可視化 (#20) — セッション内のツール実行イベント */
+  tools: ToolEvent[];
   loadMessages: (id: string) => Promise<void>;
   sendMessage: (text: string) => Promise<void>;
   abort: () => Promise<void>;
@@ -131,7 +142,7 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   selectSession: async (id) => {
-    set({ currentId: id, messages: [] });
+    set({ currentId: id, messages: [], tools: [] });
     await get().loadMessages(id);
   },
 
@@ -179,6 +190,8 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   messages: [],
+
+  tools: [],
 
   loadMessages: async (id) => {
     try {
@@ -256,8 +269,36 @@ export const useApp = create<AppState>((set, get) => ({
         knownUserIds.add(info.id);
       }
     } else if (event === 'message.part.updated') {
-      const part = p.part as { messageID: string; type: string; text?: string };
+      const part = p.part as {
+        messageID: string;
+        type: string;
+        text?: string;
+        tool?: string;
+        state?: string;
+        input?: unknown;
+      };
       if (!part || !part.messageID) return;
+
+      // プロセス可視化: ツール実行イベントを追跡 (#20, #2 §8)
+      if (part.type === 'tool' && part.tool) {
+        const toolName: string = part.tool;
+        const toolInput =
+          typeof part.input === 'string' ? part.input : JSON.stringify(part.input ?? '');
+        set((st) => ({
+          tools: [
+            ...st.tools,
+            {
+              id: part.messageID + toolName,
+              name: toolName,
+              state: part.state,
+              input: toolInput,
+              time: Date.now(),
+            },
+          ],
+        }));
+        return;
+      }
+
       if (part.type !== 'text' && part.type !== 'reasoning') return;
       if (knownUserIds.has(part.messageID)) return;
       const isReasoning = part.type === 'reasoning';

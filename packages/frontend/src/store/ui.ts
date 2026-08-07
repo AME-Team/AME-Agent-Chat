@@ -29,6 +29,7 @@ interface UIState {
   approvalHistoryOpen: boolean;
   authOpen: boolean;
   showThinking: boolean;
+  showDetails: boolean;
   /** 複数リクエストの逐次処理のためキュー化 (上書き防止) */
   pendingPermissions: PendingPermission[];
   pushToast: (message: string, tone?: Toast['tone']) => void;
@@ -38,6 +39,7 @@ interface UIState {
   setApprovalHistoryOpen: (open: boolean) => void;
   setAuthOpen: (open: boolean) => void;
   toggleThinking: () => void;
+  toggleDetails: () => void;
   enqueuePermission: (p: PendingPermission) => void;
   removePermission: (id: string) => void;
 }
@@ -49,6 +51,7 @@ export const useUI = create<UIState>((set) => ({
   approvalHistoryOpen: false,
   authOpen: false,
   showThinking: true,
+  showDetails: false,
   pendingPermissions: [],
   pushToast: (message, tone = 'info') => {
     const id = `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -63,6 +66,7 @@ export const useUI = create<UIState>((set) => ({
   setApprovalHistoryOpen: (open) => set({ approvalHistoryOpen: open }),
   setAuthOpen: (open) => set({ authOpen: open }),
   toggleThinking: () => set((st) => ({ showThinking: !st.showThinking })),
+  toggleDetails: () => set((st) => ({ showDetails: !st.showDetails })),
   enqueuePermission: (p) =>
     set((st) =>
       st.pendingPermissions.some((x) => x.id === p.id)

@@ -35,12 +35,19 @@ export function matchCommands(query: string): SlashCommand[] {
   ).slice(0, 8);
 }
 
-/** /export: セッション内容を Markdown でダウンロード (要件 #2 §2.4) */
-function exportMarkdown() {
+/** /export: セッション内容を Markdown/JSON でダウンロード (要件 #2 §2.4) */
+function exportSession(format: 'md' | 'json') {
   const { messages, sessions, currentId } = useApp.getState();
   const session = sessions.find((s) => s.id === currentId);
   const title = session?.title ?? 'session';
   const safeName = title.replace(/[\\/:*?"<>|]/g, '').trim() || 'session';
+
+  if (format === 'json') {
+    const data = JSON.stringify({ title, exportedAt: new Date().toISOString(), messages }, null, 2);
+    download(`${safeName}.json`, data, 'application/json');
+    return;
+  }
+
   const md = [
     `# ${title}`,
     '',
@@ -48,13 +55,69 @@ function exportMarkdown() {
       (m) => `**${m.role}**${m.modelID ? ` (${m.providerID}/${m.modelID})` : ''}\n\n${m.text}\n`,
     ),
   ].join('\n');
-  const blob = new Blob([md], { type: 'text/markdown' });
+  download(`${safeName}.md`, md, 'text/markdown');
+}
+
+function download(filename: string, content: string, type: string): void {
+  const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${safeName}.md`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/** Output Prompt 生成 (要件 #1 §3.5.1) — プロンプト + コンテキストを Markdown で出力 */
+function generateOutputPrompt() {
+  const { messages, sessions, currentId } = useApp.getState();
+  const session = sessions.find((s) => s.id === currentId);
+  const title = session?.title ?? 'session';
+  const safeName = title.replace(/[\\/:*?"<>|]/g, '').trim() || 'session';
+  const md = [
+    '# Output Prompt',
+    '',
+    '## プロンプト',
+    'このセッションの作業を引き継いでください。',
+    '',
+    '## コンテキスト',
+    `- セッション: ${title}`,
+    `- メッセージ数: ${messages.length}`,
+    '',
+    '### 作業履歴',
+    ...messages.map((m, i) => `${i + 1}. **${m.role}**: ${m.text.split('\n')[0].slice(0, 80)}`),
+  ].join('\n');
+  download(`${safeName}-prompt.md`, md, 'text/markdown');
+}
+
+/** JSON インポート (要件 #2 §2.4) — ファイル選択から Gatekeeper へ復元 */
+function importSession() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.onchange = () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result)) as {
+          title?: string;
+          messages?: Array<{ role: string; text: string }>;
+        };
+        void api
+          .importSession({
+            title: parsed.title ?? 'imported',
+            messages: Array.isArray(parsed.messages) ? parsed.messages : [],
+          })
+          .then(() => useUI.getState().pushToast(tr('command.imported'), 'success'));
+      } catch {
+        useUI.getState().pushToast(tr('command.importFailed'), 'error');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 
 /** コマンドを実行。UI 側で input をクリアする前提 */
@@ -97,7 +160,7 @@ export async function executeCommand(name: string, args: string): Promise<void> 
       ui.pushToast(tr('command.models'), 'info');
       return;
     case '/export':
-      exportMarkdown();
+      exportSession(args.trim().toLowerCase() === 'json' ? 'json' : 'md');
       ui.pushToast(tr('command.exported'), 'success');
       return;
     case '/compact':
@@ -152,6 +215,49 @@ export async function executeCommand(name: string, args: string): Promise<void> 
       }
       return;
     }
+    case '/details':
+      ui.toggleDetails();
+      ui.pushToast(
+        useUI.getState().showDetails ? tr('command.detailsOn') : tr('command.detailsOff'),
+        'info',
+      );
+      return;
+    case '/share': {
+      if (!app.currentId) {
+        ui.pushToast(tr('command.selectSession'), 'error');
+        return;
+      }
+      try {
+        const res = await api.sessions.share(app.currentId);
+        ui.pushToast(
+          res.url ? `${tr('command.shared')} ${res.url}` : tr('command.shared'),
+          'success',
+        );
+      } catch {
+        ui.pushToast(tr('command.executeFailed', { label }), 'error');
+      }
+      return;
+    }
+    case '/unshare': {
+      if (!app.currentId) {
+        ui.pushToast(tr('command.selectSession'), 'error');
+        return;
+      }
+      try {
+        await api.sessions.unshare(app.currentId);
+        ui.pushToast(tr('command.executed', { label }), 'success');
+      } catch {
+        ui.pushToast(tr('command.executeFailed', { label }), 'error');
+      }
+      return;
+    }
+    case '/prompt':
+      generateOutputPrompt();
+      ui.pushToast(tr('command.exported'), 'success');
+      return;
+    case '/import':
+      importSession();
+      return;
     default:
       ui.pushToast(tr('command.upcoming', { label }), 'info');
   }

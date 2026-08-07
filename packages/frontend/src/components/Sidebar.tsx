@@ -12,11 +12,12 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../lib/i18n';
 import { cn } from '../lib/cn';
 import { useApp } from '../store/app';
 import { ConfirmDialog } from './ConfirmDialog';
+import { api } from '../lib/api';
 import type { SessionSortOrder } from '@ame-agent-chat/shared';
 
 const SORT_OPTIONS: SessionSortOrder[] = ['updated', 'created', 'name'];
@@ -39,6 +40,26 @@ export function Sidebar() {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  /** Gatekeeper 全文検索 (タイトル+メッセージ内容) の結果 — #2 §2.3 */
+  const [searchHits, setSearchHits] = useState<Array<{ id: string; title: string }>>([]);
+
+  // 全文検索 (デバウンス 300ms)
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setSearchHits([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const hits = await api.search.sessions(q);
+        setSearchHits((hits as Array<{ id: string; title: string }>) ?? []);
+      } catch {
+        setSearchHits([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const sorted = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -195,6 +216,21 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto">
+        {query.trim() && searchHits.length > 0 && (
+          <>
+            <p className="px-2 pb-1 text-xs text-gray-400">{t('sidebar.searchResults')}</p>
+            {searchHits.map((h) => (
+              <button
+                key={h.id}
+                type="button"
+                onClick={() => void selectSession(h.id)}
+                className="w-full truncate rounded-md px-3 py-2 text-left text-sm text-primary transition-colors duration-150 hover:bg-primary/10"
+              >
+                {h.title || h.id}
+              </button>
+            ))}
+          </>
+        )}
         {sorted.length === 0 && (
           <p className="px-2 py-4 text-sm text-gray-400">{t('sidebar.empty')}</p>
         )}

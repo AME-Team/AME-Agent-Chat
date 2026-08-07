@@ -61,7 +61,19 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ messageID }),
       }).then(toAppSession),
+    share: (id: string) =>
+      request<{ url?: string }>(`/api/sessions/${id}/share`, { method: 'POST' }),
+    unshare: (id: string) =>
+      request<{ url?: string }>(`/api/sessions/${id}/unshare`, { method: 'POST' }),
   },
+
+  search: {
+    /** Gatekeeper のタイトル+メッセージ内容 全文検索 (#2 §2.3) */
+    sessions: (q: string) => request<unknown[]>(`/api/search?q=${encodeURIComponent(q)}`),
+  },
+
+  importSession: (data: { title: string; messages: Array<{ role: string; text: string }> }) =>
+    request<{ id: string }>('/api/import', { method: 'POST', body: JSON.stringify(data) }),
 
   messages: {
     list: (id: string) => request<unknown[]>(`/api/sessions/${id}/messages`),

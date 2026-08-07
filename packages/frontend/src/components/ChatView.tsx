@@ -7,6 +7,7 @@ import { ArrowDown } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { useApp } from '../store/app';
 import { MessageItem } from './MessageItem';
+import { ProcessAccordion } from './ProcessAccordion';
 
 export function ChatView() {
   const { t } = useI18n();
@@ -32,6 +33,7 @@ export function ChatView() {
 
   return (
     <div className="relative flex flex-1 flex-col">
+      <ProcessAccordion />
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-4 py-6">
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-gray-400">

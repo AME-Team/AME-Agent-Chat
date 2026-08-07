@@ -10,6 +10,7 @@
  */
 import type { Hono } from 'hono';
 import { getOpencodeClient } from '../opencode.js';
+import { env } from '../env.js';
 
 export function registerSessionRoutes(app: Hono): void {
   const api = getOpencodeClient();
@@ -64,5 +65,57 @@ export function registerSessionRoutes(app: Hono): void {
     });
     if (error) return c.json({ error }, 500);
     return c.json(data, 201);
+  });
+
+  // セッション共有 / 共有解除 (#2 §6 /share /unshare)
+  app.post('/api/sessions/:id/share', async (c) => {
+    const { data, error } = await api.session.share({ path: { id: c.req.param('id') } });
+    if (error) return c.json({ error }, 500);
+    return c.json(data);
+  });
+
+  app.post('/api/sessions/:id/unshare', async (c) => {
+    const { data, error } = await api.session.unshare({ path: { id: c.req.param('id') } });
+    if (error) return c.json({ error }, 500);
+    return c.json(data);
+  });
+
+  // 全文検索 (Gatekeeper の タイトル+メッセージ内容 検索へ中継) — #2 §2.3
+  app.get('/api/search', async (c) => {
+    const q = c.req.query('q') ?? '';
+    if (!q) return c.json([]);
+    const res = await fetch(
+      `${env.gatekeeperUrl}/api/sessions?q=${encodeURIComponent(q)}&sort=updated`,
+    ).catch(() => null);
+    if (!res) return c.json({ error: 'gatekeeper unavailable' }, 503);
+    const data = await res.json().catch(() => null);
+    if (!Array.isArray(data)) return c.json([]);
+    return c.json(data);
+  });
+
+  // JSON インポート (要件 #2 §2.4): Gatekeeper へセッション+メッセージを復元
+  app.post('/api/import', async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    if (typeof body.title !== 'string') return c.json({ error: 'title is required' }, 400);
+    const messages = Array.isArray(body.messages) ? body.messages : [];
+    // Gatekeeper にセッション作成
+    const createRes = await fetch(`${env.gatekeeperUrl}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: body.title }),
+    }).catch(() => null);
+    if (!createRes) return c.json({ error: 'gatekeeper unavailable' }, 503);
+    const session = (await createRes.json()) as { id: string };
+    // メッセージを追加
+    for (const m of messages) {
+      if (m && typeof m.role === 'string' && typeof m.text === 'string') {
+        await fetch(`${env.gatekeeperUrl}/api/sessions/${session.id}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: m.role, content: m.text }),
+        }).catch(() => {});
+      }
+    }
+    return c.json(session, 201);
   });
 }
