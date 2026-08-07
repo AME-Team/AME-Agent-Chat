@@ -82,6 +82,12 @@ const ja: Dict = {
   'approval.history': '承認履歴',
   'approval.historyEmpty': '履歴がありません',
   'approval.historyOpen': '承認履歴',
+  'auth.title': 'プロバイダー認証',
+  'auth.login': 'ログイン',
+  'auth.authenticated': '認証済み',
+  'auth.empty': 'プロバイダーがありません',
+  'auth.loginStarted': '認証を開始しました（ブラウザで完了してください）',
+  'auth.loginFailed': '認証に失敗しました',
 };
 
 const en: Dict = {
@@ -159,6 +165,12 @@ const en: Dict = {
   'approval.history': 'Approval History',
   'approval.historyEmpty': 'No history',
   'approval.historyOpen': 'Approval History',
+  'auth.title': 'Provider Auth',
+  'auth.login': 'Login',
+  'auth.authenticated': 'Authenticated',
+  'auth.empty': 'No providers',
+  'auth.loginStarted': 'Authentication started (complete in browser)',
+  'auth.loginFailed': 'Authentication failed',
 };
 
 const DICTS: Record<Locale, Dict> = { ja, en };

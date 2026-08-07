@@ -12,6 +12,7 @@ import { HelpDialog } from './components/HelpDialog';
 import { ApprovalDialog } from './components/ApprovalDialog';
 import { ModelSettingsDialog } from './components/SettingsDialog';
 import { ApprovalHistoryDialog } from './components/ApprovalHistoryDialog';
+import { AuthDialog } from './components/AuthDialog';
 import { useApp } from './store/app';
 import { connectEvents, disconnectEvents } from './lib/sse';
 
@@ -37,6 +38,7 @@ export function App() {
       <ApprovalDialog />
       <ModelSettingsDialog />
       <ApprovalHistoryDialog />
+      <AuthDialog />
     </div>
   );
 }
