@@ -37,6 +37,8 @@ const ja: Dict = {
   'command.executed': '{label} を実行しました',
   'command.executeFailed': '{label} の実行に失敗しました',
   'command.upcoming': '{label} は今後対応予定です',
+  'code.copy': 'コピー',
+  'code.copied': 'コピーしました',
 };
 
 const en: Dict = {
@@ -69,6 +71,8 @@ const en: Dict = {
   'command.executed': 'Ran {label}',
   'command.executeFailed': 'Failed to run {label}',
   'command.upcoming': '{label} is coming soon',
+  'code.copy': 'Copy',
+  'code.copied': 'Copied',
 };
 
 const DICTS: Record<Locale, Dict> = { ja, en };

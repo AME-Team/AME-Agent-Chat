@@ -8,6 +8,7 @@ import { useI18n } from '../lib/i18n';
 import { cn } from '../lib/cn';
 import { useUI } from '../store/ui';
 import type { AppMessage } from '../store/app';
+import { Markdown } from './Markdown';
 
 export function MessageItem({ message }: { message: AppMessage }) {
   const { t } = useI18n();
@@ -17,9 +18,13 @@ export function MessageItem({ message }: { message: AppMessage }) {
   const isUser = message.role === 'user';
 
   const copy = async () => {
-    await navigator.clipboard.writeText(message.text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(message.text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* 非セキュアコンテキスト等ではクリップボード不可 */
+    }
   };
 
   return (
@@ -69,10 +74,17 @@ export function MessageItem({ message }: { message: AppMessage }) {
               : 'bg-gray-50 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
           )}
         >
-          <span className="whitespace-pre-wrap break-words">
-            {message.text}
-            {message.streaming && <span className="ml-0.5 inline-block animate-pulse">▍</span>}
-          </span>
+          {isUser ? (
+            <span className="whitespace-pre-wrap break-words">
+              {message.text}
+              {message.streaming && <span className="ml-0.5 inline-block animate-pulse">▍</span>}
+            </span>
+          ) : (
+            <div className="break-words">
+              <Markdown>{message.text}</Markdown>
+              {message.streaming && <span className="inline-block animate-pulse">▍</span>}
+            </div>
+          )}
         </div>
         {!message.streaming && message.text && (
           <button

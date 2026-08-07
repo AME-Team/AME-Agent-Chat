@@ -13,11 +13,16 @@
   "dependencies": {
     "@ame-agent-chat/shared": "workspace:*",
     "clsx": "^2.1.1",
+    "highlight.js": "^11.11.1",
     "lucide-react": "^0.469.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.6.0",
-    "zustand": "^5.0.2"
+    "zustand": "^5.0.2",
+    "remark-breaks": "^4.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.2",
