@@ -26,7 +26,7 @@ export function createApp(db: Db): Hono {
     '/api/*',
     cors({
       origin: process.env.CORS_ORIGIN ?? 'http://localhost:51730',
-      allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
       allowHeaders: ['Content-Type'],
     }),
   );
@@ -80,6 +80,8 @@ export function createApp(db: Db): Hono {
 
   app.post('/api/sessions/:id/messages', async (c) => {
     const sessionId = c.req.param('id');
+    const session = await sessions.get(sessionId);
+    if (!session) return c.json({ error: 'session not found' }, 404);
     const body = await c.req.json().catch(() => ({}));
     if (!['user', 'assistant', 'system'].includes(body.role)) {
       return c.json({ error: 'role must be user|assistant|system' }, 400);
@@ -96,13 +98,19 @@ export function createApp(db: Db): Hono {
   });
 
   app.patch('/api/sessions/:id/messages/:messageId', async (c) => {
+    const { id: sessionId, messageId } = c.req.param();
+    const msg = await messages.get(messageId);
+    if (!msg || msg.sessionId !== sessionId) return c.json({ error: 'message not found' }, 404);
     const body = await c.req.json().catch(() => ({}));
-    await messages.setPinned(c.req.param('messageId'), body.pinned === true);
+    await messages.setPinned(messageId, body.pinned === true);
     return c.json({ ok: true });
   });
 
   app.delete('/api/sessions/:id/messages/:messageId', async (c) => {
-    await messages.remove(c.req.param('messageId'));
+    const { id: sessionId, messageId } = c.req.param();
+    const msg = await messages.get(messageId);
+    if (!msg || msg.sessionId !== sessionId) return c.json({ error: 'message not found' }, 404);
+    await messages.remove(messageId);
     return c.json({ ok: true });
   });
 
@@ -120,8 +128,10 @@ export function createApp(db: Db): Hono {
 
   app.notFound((c) => c.json({ error: 'Not Found' }, 404));
   app.onError((err, c) => {
+    // 内部情報 (SQL/パス) をクライアントへ露出しない (本番はログのみ)
     console.error(err);
-    return c.json({ error: 'Internal Server Error', message: String(err) }, 500);
+    const detail = process.env.NODE_ENV === 'production' ? undefined : String(err);
+    return c.json({ error: 'Internal Server Error', ...(detail ? { message: detail } : {}) }, 500);
   });
 
   return app;

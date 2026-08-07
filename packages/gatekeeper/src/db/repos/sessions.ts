@@ -2,7 +2,7 @@
  * セッションリポジトリ (要件 #2 §2)
  * CRUD・ピン留め・並び替え・タイトル+メッセージ内容の検索 (#2 §2.3)。
  */
-import { eq, like, or, sql } from 'drizzle-orm';
+import { eq, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { sessions, type NewSession } from '../schema.js';
 import type * as schema from '../schema.js';
@@ -24,12 +24,16 @@ export function createSessionRepo(db: Db) {
     /** 一覧 (並び替え + タイトル/メッセージ内容の検索) — 要件 #2 §2.3 */
     async list(sort: SessionSort = 'updated', query = ''): Promise<SessionRow[]> {
       const q = query.trim();
-      const where = q
-        ? or(
-            like(sessions.title, `%${q}%`),
-            sql`${sessions.id} IN (SELECT DISTINCT session_id FROM chat_messages WHERE content LIKE ${`%${q}%`})`,
-          )
-        : undefined;
+      if (!q) {
+        return sortRows(await db.select().from(sessions), sort);
+      }
+      // LIKE ワイルドカード (% _ \) をエスケープ
+      const esc = (s: string) => s.replace(/[\\%_]/g, (m) => `\\${m}`);
+      const pattern = `%${esc(q)}%`;
+      const where = or(
+        sql`${sessions.title} LIKE ${pattern} ESCAPE '\'`,
+        sql`${sessions.id} IN (SELECT DISTINCT session_id FROM chat_messages WHERE content LIKE ${pattern} ESCAPE '\')`,
+      );
       const rows = await db.select().from(sessions).where(where);
       return sortRows(rows, sort);
     },

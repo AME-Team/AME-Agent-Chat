@@ -30,6 +30,8 @@ pnpm-debug.log*
 *.db
 *.sqlite
 *.sqlite-journal
+*.db-shm
+*.db-wal
 
 # misc
 coverage/
