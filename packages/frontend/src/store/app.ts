@@ -137,7 +137,7 @@ export const useApp = create<AppState>((set, get) => ({
   createSession: async () => {
     const s = await api.sessions.create();
     lastCreatedId = s.id;
-    set((st) => ({ sessions: [s, ...st.sessions], currentId: s.id, messages: [] }));
+    set((st) => ({ sessions: [s, ...st.sessions], currentId: s.id, messages: [], tools: [] }));
     return s.id;
   },
 
@@ -278,27 +278,33 @@ export const useApp = create<AppState>((set, get) => ({
         input?: unknown;
       };
       if (!part || !part.messageID) return;
-
-      // プロセス可視化: ツール実行イベントを追跡 (#20, #2 §8)
+      // プロセス可視化: ツール実行イベントを追跡 (#20, #2 §8) — 同一ツールは upsert
       if (part.type === 'tool' && part.tool) {
         const toolName: string = part.tool;
         const toolInput =
           typeof part.input === 'string' ? part.input : JSON.stringify(part.input ?? '');
-        set((st) => ({
-          tools: [
-            ...st.tools,
-            {
-              id: part.messageID + toolName,
-              name: toolName,
-              state: part.state,
-              input: toolInput,
-              time: Date.now(),
-            },
-          ],
-        }));
+        set((st) => {
+          const exists = st.tools.some((t) => t.id === part.messageID + toolName);
+          const tools = exists
+            ? st.tools.map((t) =>
+                t.id === part.messageID + toolName
+                  ? { ...t, state: part.state, input: toolInput, time: Date.now() }
+                  : t,
+              )
+            : [
+                ...st.tools,
+                {
+                  id: part.messageID + toolName,
+                  name: toolName,
+                  state: part.state,
+                  input: toolInput,
+                  time: Date.now(),
+                },
+              ];
+          return { tools };
+        });
         return;
       }
-
       if (part.type !== 'text' && part.type !== 'reasoning') return;
       if (knownUserIds.has(part.messageID)) return;
       const isReasoning = part.type === 'reasoning';

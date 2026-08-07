@@ -22,6 +22,9 @@ import type { SessionSortOrder } from '@ame-agent-chat/shared';
 
 const SORT_OPTIONS: SessionSortOrder[] = ['updated', 'created', 'name'];
 
+/** 全文検索の連番 (古い応答を破棄するための競合対策) */
+let searchSeq = 0;
+
 export function Sidebar() {
   const { t } = useI18n();
   const sessions = useApp((s) => s.sessions);
@@ -43,19 +46,20 @@ export function Sidebar() {
   /** Gatekeeper 全文検索 (タイトル+メッセージ内容) の結果 — #2 §2.3 */
   const [searchHits, setSearchHits] = useState<Array<{ id: string; title: string }>>([]);
 
-  // 全文検索 (デバウンス 300ms)
+  // 全文検索 (デバウンス 300ms + 連番で古い応答を破棄)
   useEffect(() => {
     const q = query.trim();
     if (!q) {
       setSearchHits([]);
       return;
     }
+    const seq = ++searchSeq;
     const timer = setTimeout(async () => {
       try {
         const hits = await api.search.sessions(q);
-        setSearchHits((hits as Array<{ id: string; title: string }>) ?? []);
+        if (seq === searchSeq) setSearchHits((hits as Array<{ id: string; title: string }>) ?? []);
       } catch {
-        setSearchHits([]);
+        if (seq === searchSeq) setSearchHits([]);
       }
     }, 300);
     return () => clearTimeout(timer);

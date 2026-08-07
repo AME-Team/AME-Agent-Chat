@@ -81,6 +81,7 @@ export function registerSessionRoutes(app: Hono): void {
   });
 
   // 全文検索 (Gatekeeper の タイトル+メッセージ内容 検索へ中継) — #2 §2.3
+  // ※Gatekeeper /api/sessions の q はタイトル+メッセージ内容の LIKE 全文検索を実装済み (#6)
   app.get('/api/search', async (c) => {
     const q = c.req.query('q') ?? '';
     if (!q) return c.json([]);
@@ -88,8 +89,10 @@ export function registerSessionRoutes(app: Hono): void {
       `${env.gatekeeperUrl}/api/sessions?q=${encodeURIComponent(q)}&sort=updated`,
     ).catch(() => null);
     if (!res) return c.json({ error: 'gatekeeper unavailable' }, 503);
+    if (!res.ok)
+      return c.json({ error: 'gatekeeper search failed', message: await res.json() }, 502);
     const data = await res.json().catch(() => null);
-    if (!Array.isArray(data)) return c.json([]);
+    if (!Array.isArray(data)) return c.json({ error: 'invalid gatekeeper response' }, 502);
     return c.json(data);
   });
 
@@ -98,24 +101,30 @@ export function registerSessionRoutes(app: Hono): void {
     const body = await c.req.json().catch(() => ({}));
     if (typeof body.title !== 'string') return c.json({ error: 'title is required' }, 400);
     const messages = Array.isArray(body.messages) ? body.messages : [];
-    // Gatekeeper にセッション作成
+    // Gatekeeper にセッション作成 (失敗は伝播)
     const createRes = await fetch(`${env.gatekeeperUrl}/api/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: body.title }),
     }).catch(() => null);
     if (!createRes) return c.json({ error: 'gatekeeper unavailable' }, 503);
-    const session = (await createRes.json()) as { id: string };
-    // メッセージを追加
+    if (!createRes.ok)
+      return c.json({ error: 'gatekeeper create failed', message: await createRes.json() }, 502);
+    const session = (await createRes.json()) as { id?: string };
+    if (!session?.id) return c.json({ error: 'invalid gatekeeper response' }, 502);
+
+    // メッセージを追加 (失敗数を記録して部分成功を可視化)
+    let failed = 0;
     for (const m of messages) {
       if (m && typeof m.role === 'string' && typeof m.text === 'string') {
-        await fetch(`${env.gatekeeperUrl}/api/sessions/${session.id}/messages`, {
+        const res = await fetch(`${env.gatekeeperUrl}/api/sessions/${session.id}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ role: m.role, content: m.text }),
-        }).catch(() => {});
+        }).catch(() => null);
+        if (!res?.ok) failed++;
       }
     }
-    return c.json(session, 201);
+    return c.json({ ...session, importedMessages: messages.length, failedMessages: failed }, 201);
   });
 }

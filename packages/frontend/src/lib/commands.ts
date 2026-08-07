@@ -110,7 +110,15 @@ function importSession() {
             title: parsed.title ?? 'imported',
             messages: Array.isArray(parsed.messages) ? parsed.messages : [],
           })
-          .then(() => useUI.getState().pushToast(tr('command.imported'), 'success'));
+          .then((r) => {
+            useUI
+              .getState()
+              .pushToast(
+                `${tr('command.imported')} (${(r as { importedMessages?: number }).importedMessages ?? 0})`,
+                'success',
+              );
+            void useApp.getState().loadSessions(); // 一覧をリフレッシュ
+          });
       } catch {
         useUI.getState().pushToast(tr('command.importFailed'), 'error');
       }
