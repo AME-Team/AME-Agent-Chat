@@ -2,10 +2,11 @@
  * ヘッダー (要件 #2 §9.1, §9.3)
  * テーマ切替・1ポイントカラー切替・言語切替の基本操作。
  */
-import { HelpCircle, Monitor, Moon, Sun } from 'lucide-react';
+import { HelpCircle, Monitor, Moon, Settings, Sun } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { cn } from '../lib/cn';
 import { useApp } from '../store/app';
+import { useUI } from '../store/ui';
 import type { AccentColor, Theme } from '@ame-agent-chat/shared';
 
 const ACCENT_SWATCH: Record<AccentColor, string> = {
@@ -32,6 +33,7 @@ export function Header() {
   const setAccent = useApp((s) => s.setAccent);
   const locale = useApp((s) => s.locale);
   const setLocale = useApp((s) => s.setLocale);
+  const setSettingsOpen = useUI((s) => s.setSettingsOpen);
 
   const cycleTheme = () => {
     const order: Theme[] = ['light', 'dark', 'system'];
@@ -80,6 +82,14 @@ export function Header() {
           <option value="ja">JA</option>
           <option value="en">EN</option>
         </select>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label={t('header.settings')}
+          className="flex size-8 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
+          <Settings className="size-4" />
+        </button>
         <button
           type="button"
           aria-label={t('header.help')}

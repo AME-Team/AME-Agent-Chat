@@ -64,6 +64,17 @@ const ja: Dict = {
   'approval.rejected': '拒否しました',
   'approval.failed': '承認処理に失敗しました',
   'approval.deniedByPolicy': 'この操作はポリシー上禁止されています (ホスト OS での実行不可)',
+  'settings.title': '設定',
+  'settings.tiers': 'モデルティア',
+  'settings.provider': 'プロバイダー',
+  'settings.model': 'モデル',
+  'settings.reasoning': '推論量',
+  'settings.effort': 'Effort プリセット',
+  'settings.compress': 'プロンプト圧縮（履歴を圧縮してトークン削減）',
+  'settings.save': '保存',
+  'settings.saved': '設定を保存しました',
+  'settings.saveFailed': '設定の保存に失敗しました',
+  'header.settings': '設定',
 };
 
 const en: Dict = {
@@ -123,6 +134,17 @@ const en: Dict = {
   'approval.rejected': 'Rejected',
   'approval.failed': 'Failed to process approval',
   'approval.deniedByPolicy': 'This operation is forbidden by policy (no host OS execution)',
+  'settings.title': 'Settings',
+  'settings.tiers': 'Model Tiers',
+  'settings.provider': 'Provider',
+  'settings.model': 'Model',
+  'settings.reasoning': 'Reasoning',
+  'settings.effort': 'Effort Preset',
+  'settings.compress': 'Compress context (trim history to save tokens)',
+  'settings.save': 'Save',
+  'settings.saved': 'Settings saved',
+  'settings.saveFailed': 'Failed to save settings',
+  'header.settings': 'Settings',
 };
 
 const DICTS: Record<Locale, Dict> = { ja, en };
