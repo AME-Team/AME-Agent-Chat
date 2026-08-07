@@ -1,8 +1,8 @@
 /**
- * メッセージ表示 (要件 #2 §4.1, §4.2)
- * Streaming カーソル / 担当モデル表示 / ロール区別。
+ * メッセージ表示 (要件 #2 §4.1, §4.2, §4.4)
+ * Streaming カーソル / 担当モデル表示 / ロール区別 / ピン留め / 長文折りたたみ / コピー。
  */
-import { Check, ChevronDown, Copy } from 'lucide-react';
+import { Check, ChevronDown, Copy, Pin, PinOff } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '../lib/i18n';
 import { cn } from '../lib/cn';
@@ -10,12 +10,30 @@ import { useUI } from '../store/ui';
 import type { AppMessage } from '../store/app';
 import { Markdown } from './Markdown';
 
+const PIN_KEY = 'msgPin';
+const COLLAPSE_LIMIT = 1500;
+
+function loadPins(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(PIN_KEY) ?? '[]') as string[];
+  } catch {
+    return [];
+  }
+}
+function isPinned(id: string): boolean {
+  return loadPins().includes(id);
+}
+
 export function MessageItem({ message }: { message: AppMessage }) {
   const { t } = useI18n();
   const showThinking = useUI((s) => s.showThinking);
   const [copied, setCopied] = useState(false);
   const [showReasoning, setShowReasoning] = useState(false);
+  const [pinned, setPinned] = useState(() => isPinned(message.id));
+  const [collapsed, setCollapsed] = useState(true);
   const isUser = message.role === 'user';
+  const isLong = message.text.length > COLLAPSE_LIMIT;
+  const text = collapsed && isLong ? `${message.text.slice(0, COLLAPSE_LIMIT)}…` : message.text;
 
   const copy = async () => {
     try {
@@ -25,6 +43,12 @@ export function MessageItem({ message }: { message: AppMessage }) {
     } catch {
       /* 非セキュアコンテキスト等ではクリップボード不可 */
     }
+  };
+
+  const togglePin = () => {
+    const next = pinned ? loadPins().filter((x) => x !== message.id) : [...loadPins(), message.id];
+    localStorage.setItem(PIN_KEY, JSON.stringify(next));
+    setPinned(!pinned);
   };
 
   return (
@@ -72,29 +96,54 @@ export function MessageItem({ message }: { message: AppMessage }) {
             isUser
               ? 'bg-primary text-primary-foreground'
               : 'bg-gray-50 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
+            pinned && 'ring-1 ring-primary/50',
           )}
         >
           {isUser ? (
             <span className="whitespace-pre-wrap break-words">
-              {message.text}
+              {text}
               {message.streaming && <span className="ml-0.5 inline-block animate-pulse">▍</span>}
             </span>
           ) : (
             <div className="break-words">
-              <Markdown>{message.text}</Markdown>
+              <Markdown>{text}</Markdown>
               {message.streaming && <span className="inline-block animate-pulse">▍</span>}
             </div>
           )}
         </div>
-        {!message.streaming && message.text && (
+        {isLong && (
           <button
             type="button"
-            onClick={copy}
-            className="flex items-center gap-1 text-xs text-gray-400 transition-colors duration-150 hover:text-gray-600 dark:hover:text-gray-300"
+            onClick={() => setCollapsed((v) => !v)}
+            className="text-xs text-gray-400 transition-colors duration-150 hover:text-primary"
           >
-            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-            {copied ? t('common.copy') : t('common.copy')}
+            {collapsed ? t('common.expand') : t('common.collapse')}
           </button>
+        )}
+        {!message.streaming && message.text && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={togglePin}
+              aria-label={pinned ? t('message.unpin') : t('message.pin')}
+              className={cn(
+                'flex items-center gap-1 text-xs transition-colors duration-150',
+                pinned
+                  ? 'text-primary'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300',
+              )}
+            >
+              {pinned ? <PinOff className="size-3" /> : <Pin className="size-3" />}
+            </button>
+            <button
+              type="button"
+              onClick={copy}
+              className="flex items-center gap-1 text-xs text-gray-400 transition-colors duration-150 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+              {t('common.copy')}
+            </button>
+          </div>
         )}
       </div>
     </div>

@@ -86,6 +86,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ approved, whitelist, sessionId }),
       }),
+    /** 承認履歴 (監査性 #2 §7.2) */
+    history: (limit = 50) => request<unknown[]>(`/api/permissions/history?limit=${limit}`),
   },
 
   settings: {

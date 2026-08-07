@@ -111,4 +111,13 @@ export function registerPermissionRoutes(app: Hono): void {
 
     return c.json({ ok: true, response });
   });
+
+  // 承認履歴 (監査性 #2 §7.2) — Gatekeeper から取得して中継
+  app.get('/api/permissions/history', async (c) => {
+    const res = await fetch(
+      `${env.gatekeeperUrl}/api/approvals/history?limit=${Number(c.req.query('limit') ?? 50)}`,
+    ).catch(() => null);
+    if (!res) return c.json({ error: 'gatekeeper unavailable' }, 503);
+    return c.json(await res.json(), res.status as 200 | 400 | 500);
+  });
 }

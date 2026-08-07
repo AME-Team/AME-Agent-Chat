@@ -1,7 +1,7 @@
 /**
  * メッセージ入力 (要件 #2 §3.1)
  * マルチライン・自動リサイズ・Enter 送信 / Shift+Enter 改行・文字数カウント。
- * スラッシュコマンド(#2 §6)を入力で検知し CommandPalette を表示(キー操作は本コンポーネントで集約)。
+ * 下書き保持(セッション単位)・入力履歴(↑↓)・スラッシュコマンドサジェスト。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Send, Square } from 'lucide-react';
@@ -9,6 +9,47 @@ import { useI18n } from '../lib/i18n';
 import { useApp } from '../store/app';
 import { CommandPalette } from './CommandPalette';
 import { executeCommand, matchCommands, parseCommand } from '../lib/commands';
+
+const DRAFT_PREFIX = 'draft:';
+const HIST_PREFIX = 'history:';
+const HIST_LIMIT = 20;
+
+/** 入力履歴の現在位置 (単純循環) */
+let upIdx = -1;
+
+function loadDraft(sessionId: string): string {
+  try {
+    return localStorage.getItem(`${DRAFT_PREFIX}${sessionId}`) ?? '';
+  } catch {
+    return '';
+  }
+}
+function saveDraft(sessionId: string, text: string): void {
+  try {
+    if (text) localStorage.setItem(`${DRAFT_PREFIX}${sessionId}`, text);
+    else localStorage.removeItem(`${DRAFT_PREFIX}${sessionId}`);
+  } catch {
+    /* storage unavailable */
+  }
+}
+function loadHistory(sessionId: string): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(`${HIST_PREFIX}${sessionId}`) ?? '[]') as string[];
+  } catch {
+    return [];
+  }
+}
+function pushHistory(sessionId: string, text: string): void {
+  try {
+    const list = loadHistory(sessionId).filter((h) => h !== text);
+    localStorage.setItem(
+      `${HIST_PREFIX}${sessionId}`,
+      JSON.stringify([text, ...list].slice(0, HIST_LIMIT)),
+    );
+  } catch {
+    /* storage unavailable */
+  }
+}
 
 export function MessageInput() {
   const { t } = useI18n();
@@ -18,6 +59,17 @@ export function MessageInput() {
   const busy = useApp((s) => s.busy);
   const sendMessage = useApp((s) => s.sendMessage);
   const abort = useApp((s) => s.abort);
+  const currentId = useApp((s) => s.currentId);
+
+  // セッション切替時に下書きを復元 (要件 #2 §3.1 下書き保持)
+  useEffect(() => {
+    setText(currentId ? loadDraft(currentId) : '');
+  }, [currentId]);
+
+  // 下書きをセッション単位で永続化
+  useEffect(() => {
+    if (currentId) saveDraft(currentId, text);
+  }, [text, currentId]);
 
   // 自動リサイズ (要件 #2 §3.1)
   useEffect(() => {
@@ -37,6 +89,7 @@ export function MessageInput() {
     const value = text.trim();
     if (!value || busy) return;
     setText('');
+    if (currentId) pushHistory(currentId, value);
     const cmd = parseCommand(value);
     if (cmd) {
       await executeCommand(cmd.name, cmd.args);
@@ -66,6 +119,22 @@ export function MessageInput() {
         return;
       }
     }
+
+    // 入力履歴の再利用 (要件 #2 §3.1) — カーソル位置にかかわらず単純に循環
+    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.shiftKey) {
+      if (!currentId) return;
+      const hist = loadHistory(currentId);
+      if (hist.length === 0) return;
+      e.preventDefault();
+      const idx = Math.max(
+        0,
+        Math.min(hist.length - 1, e.key === 'ArrowUp' ? upIdx + 1 : upIdx - 1),
+      );
+      upIdx = idx;
+      setText(hist[idx] ?? '');
+      return;
+    }
+
     // Enter 送信 / Shift+Enter 改行 (要件 #2 §3.1)
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
