@@ -9,6 +9,7 @@ import { ChatView } from './components/ChatView';
 import { MessageInput } from './components/MessageInput';
 import { Toasts } from './components/Toasts';
 import { HelpDialog } from './components/HelpDialog';
+import { ApprovalDialog } from './components/ApprovalDialog';
 import { useApp } from './store/app';
 import { connectEvents, disconnectEvents } from './lib/sse';
 
@@ -31,6 +32,7 @@ export function App() {
       </div>
       <Toasts />
       <HelpDialog />
+      <ApprovalDialog />
     </div>
   );
 }

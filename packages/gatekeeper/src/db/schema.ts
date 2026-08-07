@@ -38,6 +38,30 @@ export const appSettings = sqliteTable('app_settings', {
   value: text('value').notNull(),
 });
 
+/** 承認リクエスト (要件 #2 §7 承認フロー・監査性) */
+export const approvalRequests = sqliteTable('approval_requests', {
+  /** OpenCode の permissionID と同一 */
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').notNull(),
+  messageId: text('message_id'),
+  permissionId: text('permission_id').notNull(),
+  /** 操作種別: read / write / execute / package-install 等 */
+  type: text('type').notNull(),
+  path: text('path'),
+  command: text('command'),
+  description: text('description').notNull().default(''),
+  /** ポリシー判定結果 (要件 #1 §3.4) */
+  policy: text('policy', { enum: ['allow', 'approval', 'deny'] }).notNull(),
+  policyReason: text('policy_reason'),
+  status: text('status', {
+    enum: ['pending', 'approved', 'whitelisted', 'rejected'],
+  })
+    .notNull()
+    .default('pending'),
+  createdAt: integer('created_at').notNull(),
+  decidedAt: integer('decided_at'),
+});
+
 /** トークン使用実績 (要件 #1 §5 token_usages) — #27 Check Usage で活性化 */
 export const tokenUsages = sqliteTable('token_usages', {
   id: integer('id').primaryKey({ autoIncrement: true }),

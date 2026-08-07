@@ -10,6 +10,7 @@
 import type { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { getOpencodeClient } from '../opencode.js';
+import { registerPermission } from './permissions.js';
 
 export function registerEventRoutes(app: Hono): void {
   const api = getOpencodeClient();
@@ -29,6 +30,10 @@ export function registerEventRoutes(app: Hono): void {
         const result = await api.event.subscribe();
         for await (const event of result.stream) {
           if (aborted) break;
+          // 承認フロー: permission.updated を Gatekeeper へ登録 (ポリシー判定・監査)
+          if (event.type === 'permission.updated') {
+            void registerPermission(event.properties as never);
+          }
           await stream.writeSSE({
             event: event.type,
             data: JSON.stringify(event.properties),
