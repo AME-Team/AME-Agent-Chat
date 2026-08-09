@@ -15,6 +15,7 @@ const Root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const isWin = process.platform === 'win32';
 const stateDir = path.join(os.tmpdir(), 'ame-agent-chat');
 const pidFile = path.join(stateDir, 'pids.json');
+const opencodePidFile = path.join(stateDir, 'opencode.pid');
 
 const killTree = (pid) => {
   const send = (sig) => {
@@ -62,6 +63,17 @@ if (existsSync(pidFile)) {
   rmSync(pidFile, { force: true });
 } else {
   console.log('PID ファイルが見つかりません。手動でプロセスを終了してください。');
+}
+
+console.log('OpenCode Server プロセスを終了 (dev モード)...');
+if (existsSync(opencodePidFile)) {
+  const { opencode } = JSON.parse(readFileSync(opencodePidFile, 'utf8'));
+  // dev.mjs は detached シェル (プロセスグループリーダー) として起動するため、
+  // killTree のプロセスグループキル (-pid / taskkill /T) で opencode 本体まで停止できる。
+  if (opencode) killTree(opencode);
+  rmSync(opencodePidFile, { force: true });
+} else {
+  console.log('OpenCode PID ファイルが見つかりません。');
 }
 
 console.log('停止しました。');

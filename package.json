@@ -14,7 +14,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "dev": "pnpm -r --parallel run dev",
+    "dev": "node scripts/dev.mjs",
     "build": "pnpm -r build",
     "start": "node scripts/start.mjs",
     "stop": "node scripts/stop.mjs"
