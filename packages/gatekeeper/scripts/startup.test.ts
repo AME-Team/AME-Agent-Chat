@@ -57,8 +57,16 @@ before(async () => {
   });
 });
 
-after(() => {
-  child?.kill('SIGTERM');
+after(async () => {
+  const proc = child;
+  if (proc) {
+    proc.kill('SIGTERM');
+    // Windows で子プロセスが DB ファイルを掴んだまま削除すると EPERM になるため、exit を待ってから削除する
+    await new Promise<void>((resolve) => {
+      if (proc.exitCode !== null && proc.exitCode !== undefined) return resolve();
+      proc.once('exit', () => resolve());
+    });
+  }
   if (dbDir) rmSync(dbDir, { recursive: true, force: true });
 });
 

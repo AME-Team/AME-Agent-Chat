@@ -4,7 +4,7 @@
  */
 import Database from 'better-sqlite3';
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as schema from './schema.js';
@@ -41,6 +41,8 @@ export async function migrateLegacyDb(): Promise<boolean> {
       legacy.close();
     }
   } catch (err) {
+    // 途中まで書き込まれた部分ファイルを削除し、次回起動時に再試行できるようにする
+    rmSync(DEFAULT_DB_PATH, { force: true });
     console.error(
       `[gatekeeper] legacy DB migration failed: ${LEGACY_DB_PATH} -> ${DEFAULT_DB_PATH}`,
     );
