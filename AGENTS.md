@@ -25,7 +25,7 @@ pnpm lint               # ESLint（フラット設定）
 pnpm lint:fix
 pnpm format             # Prettier 整形
 pnpm format:check
-pnpm dev                # 全パッケージ並列 dev 起動
+pnpm dev                # opencode serve 自動起動 + 全パッケージ並列 dev 起動
 pnpm build              # 全パッケージビルド
 pnpm start              # ワンコマンド起動（Docker + Gatekeeper + Frontend + ブラウザ）
 pnpm stop               # 停止（コンテナ down + プロセス終了）
@@ -52,7 +52,7 @@ Frontend(51730)/Gatekeeper(58780) はホスト起動。コンテナは Agent Cor
 | ---------------- | --------------------------------------------------------------- |
 | Frontend (PWA)   | 51730                                                           |
 | Agent Core (BFF) | 30010                                                           |
-| OpenCode Server  | 40960（コンテナ内のみ）                                         |
+| OpenCode Server  | 40960（コンテナ内のみ / `pnpm dev` ではホスト自動起動）        |
 | Gatekeeper API   | 58780（ホスト OS）※要件 §2.6 の 87880 は TCP 上限超過のため修正 |
 
 ## UI 設計
