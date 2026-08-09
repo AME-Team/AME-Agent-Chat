@@ -7,17 +7,15 @@
  */
 import { serve } from '@hono/node-server';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { fileURLToPath } from 'node:url';
 import { createApp } from './server.js';
-import { createDb, migrateLegacyDb, DB_PATH } from './db/index.js';
-import type * as schema from './db/schema.js';
+import { createDb, migrateLegacyDb, type Db, DB_PATH } from './db/index.js';
 
 const port = Number(process.env.PORT ?? 58780);
 const host = process.env.HOST ?? '0.0.0.0';
 
 /** 適用済みマイグレーション数 (migrate 実行前後で差分を取る) */
-function appliedMigrationCount(db: BetterSQLite3Database<typeof schema>): number {
+function appliedMigrationCount(db: Db): number {
   try {
     const row = db.get<{ c: number }>('SELECT COUNT(*) AS c FROM __drizzle_migrations');
     return row ? Number(row.c) : 0;
@@ -43,6 +41,8 @@ async function main(): Promise<void> {
     // stderr がパイプの環境でもログが確実にフラッシュされるよう process.exit ではなく exitCode で終了する
     console.error(`[gatekeeper] migration failed. DB=${DB_PATH} folder=${migrationsFolder}`);
     console.error(err);
+    // better-sqlite3 はオープン中にイベントループを生かし続けるため、明示的にクローズしてから終了する
+    db.$client.close();
     process.exitCode = 1;
     return;
   }
@@ -55,10 +55,19 @@ async function main(): Promise<void> {
 
   const app = createApp(db);
 
-  serve({ fetch: app.fetch, port, hostname: host }, (info) => {
+  const server = serve({ fetch: app.fetch, port, hostname: host }, (info) => {
     console.log(`[gatekeeper] listening on http://${host}:${info.port}`);
     console.log(`[gatekeeper] sqlite: ${DB_PATH}`);
   });
+
+  const shutdown = (): void => {
+    server.close(() => {
+      db.$client.close();
+      process.exit(0);
+    });
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
 
 void main();

@@ -3,6 +3,7 @@
  * データベースは Gatekeeper パッケージ配下 data/ame.db に配置(ホスト側永続化)。
  */
 import Database from 'better-sqlite3';
+import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -55,7 +56,9 @@ export async function migrateLegacyDb(): Promise<boolean> {
 
 export const DB_PATH = process.env.AME_DB_PATH ?? DEFAULT_DB_PATH;
 
-export function createDb(): BetterSQLite3Database<typeof schema> {
+export type Db = BetterSQLite3Database<typeof schema> & { $client: SqliteDatabase };
+
+export function createDb(): Db {
   mkdirSync(dirname(DB_PATH), { recursive: true });
   const sqlite = new Database(DB_PATH);
   sqlite.pragma('journal_mode = WAL');
