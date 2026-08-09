@@ -3,47 +3,15 @@
  * AME Agent Chat — ワンコマンド停止
  * クロスプラットフォーム対応: Windows / Linux / macOS
  *
- * Agent コンテナ停止 → Gatekeeper / Frontend プロセス終了
+ * Agent コンテナ停止 → Gatekeeper / Frontend プロセス終了 → OpenCode (dev モード) 終了
  */
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { Root, opencodePidFile, killTree, isOpencodeProcess, readPid } from './lib/process.mjs';
 
-const Root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const isWin = process.platform === 'win32';
-const stateDir = path.join(os.tmpdir(), 'ame-agent-chat');
-const pidFile = path.join(stateDir, 'pids.json');
-const opencodePidFile = path.join(stateDir, 'opencode.pid');
-
-const killTree = (pid) => {
-  const send = (sig) => {
-    try {
-      if (isWin) {
-        execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
-      } else {
-        process.kill(-pid, sig);
-      }
-    } catch {
-      // 既に終了済み
-    }
-  };
-  send('SIGTERM');
-  if (!isWin) {
-    const deadline = Date.now() + 5000;
-    while (Date.now() < deadline) {
-      try {
-        process.kill(-pid, 0);
-      } catch {
-        return;
-      }
-      const wait = new Uint32Array(new SharedArrayBuffer(4));
-      Atomics.wait(wait, 0, 0, 200);
-    }
-    send('SIGKILL');
-  }
-};
+const pidFile = path.join(os.tmpdir(), 'ame-agent-chat', 'pids.json');
 
 console.log('Agent コンテナを停止...');
 const down = spawnSync('docker', ['compose', '-f', 'docker-compose.yml', 'down'], {
@@ -66,11 +34,18 @@ if (existsSync(pidFile)) {
 }
 
 console.log('OpenCode Server プロセスを終了 (dev モード)...');
-if (existsSync(opencodePidFile)) {
-  const { opencode } = JSON.parse(readFileSync(opencodePidFile, 'utf8'));
+const opencodePid = readPid(opencodePidFile);
+if (opencodePid) {
   // dev.mjs は detached シェル (プロセスグループリーダー) として起動するため、
   // killTree のプロセスグループキル (-pid / taskkill /T) で opencode 本体まで停止できる。
-  if (opencode) killTree(opencode);
+  // 念のため対象が opencode であることを検証してから kill する (PID 再利用対策)。
+  if (isOpencodeProcess(opencodePid)) {
+    killTree(opencodePid);
+  } else {
+    console.warn(
+      `警告: PID ${opencodePid} は opencode プロセスではないため終了しません。ファイルのみ削除します。`,
+    );
+  }
   rmSync(opencodePidFile, { force: true });
 } else {
   console.log('OpenCode PID ファイルが見つかりません。');

@@ -30,7 +30,7 @@ pnpm dev          # opencode serve を自動起動 + 全パッケージ並列起
 
 - Frontend: http://localhost:51730
 - Agent Core API: http://localhost:30010
-- OpenCode Server: http://localhost:40960（`opencode serve` が未起動の場合のみ自動起動。終了時は自動停止）
+- OpenCode Server: http://localhost:40960（`opencode serve` が未起動の場合のみ自動起動。**自動起動した場合のみ** dev 終了時に自動停止）
 
 ### Docker（Agent Core + OpenCode をコンテナで同居起動）
 
