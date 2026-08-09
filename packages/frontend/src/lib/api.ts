@@ -4,6 +4,18 @@
  * 開発時は Vite プロキシで /api -> http://localhost:30010 へ中継 (vite.config.ts)。
  */
 
+/** API エラー (HTTP ステータス + レスポンス本文を保持) */
+export class ApiError extends Error {
+  status: number;
+  body: unknown;
+  constructor(path: string, status: number, body: unknown) {
+    super(`API ${path} failed: ${status} ${JSON.stringify(body)}`);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
@@ -11,7 +23,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(`API ${path} failed: ${res.status} ${JSON.stringify(body)}`);
+    throw new ApiError(path, res.status, body);
   }
   return res.json() as Promise<T>;
 }

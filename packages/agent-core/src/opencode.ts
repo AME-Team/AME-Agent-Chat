@@ -23,9 +23,31 @@ export interface OpencodeResult<T> {
   unreachable?: boolean;
 }
 
+/** 接続断 (fetch/ネットワーク起因) の判定 — SDK は接続失敗時に TypeError: fetch failed を投げる */
+function isConnectionError(cause: unknown): boolean {
+  if (!(cause instanceof Error)) return false;
+  const code = (cause as Error & { code?: string }).code ?? '';
+  const inner = (cause as { cause?: unknown }).cause;
+  const innerCode = inner instanceof Error ? ((inner as Error & { code?: string }).code ?? '') : '';
+  const CONNECTION_CODES = [
+    'ECONNREFUSED',
+    'ECONNRESET',
+    'EHOSTUNREACH',
+    'ENOTFOUND',
+    'EAI_AGAIN',
+    'ETIMEDOUT',
+  ];
+  return (
+    CONNECTION_CODES.includes(code) ||
+    CONNECTION_CODES.includes(innerCode) ||
+    cause.message.includes('fetch failed')
+  );
+}
+
 /**
  * OpenCode SDK 呼び出しを実行し、接続エラー (Server 未起動など) を { error } に正規化。
- * SDK は fetch 失敗時に例外を投げるため、ルート毎の try/catch を廃して一元化する。
+ * 接続断のみ unreachable=true として 503 判定に使い、それ以外は原因を隠蔽せず再スローする
+ * (グローバル onError が 500 を返し、ログに詳細が残る)。
  */
 export async function callOpencode<T>(
   fn: () => Promise<{ data?: T; error?: unknown }>,
@@ -33,6 +55,7 @@ export async function callOpencode<T>(
   try {
     return await fn();
   } catch (cause) {
+    if (!isConnectionError(cause)) throw cause;
     return {
       error: { message: 'opencode server unreachable', cause: String(cause) },
       unreachable: true,

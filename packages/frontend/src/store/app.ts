@@ -3,7 +3,7 @@
  * セッション一覧・現在のセッション・メッセージ・設定・SSE 適用を一元管理。
  */
 import { create } from 'zustand';
-import { api, type AppSession } from '../lib/api';
+import { api, ApiError, type AppSession } from '../lib/api';
 import { tr } from '../lib/i18n';
 import { useUI } from './ui';
 import type { AccentColor, Locale, SessionSortOrder, Theme } from '@ame-agent-chat/shared';
@@ -155,9 +155,14 @@ export const useApp = create<AppState>((set, get) => ({
       set((st) => ({ sessions: [s, ...st.sessions], currentId: s.id, messages: [], tools: [] }));
       return s.id;
     } catch (e) {
-      // OpenCode Server 未起動等で新規セッションを作れない場合は到達不可として表示 (#44)
-      set({ reachable: false });
-      useUI.getState().pushToast(tr('chat.createSessionFailed'), 'error');
+      // OpenCode Server 未起動 (503) のみ未到達として扱う (#44)。
+      // その他のエラーはサーバー実エラーのため reachable は維持する。
+      if (e instanceof ApiError && e.status === 503) {
+        set({ reachable: false });
+        useUI.getState().pushToast(tr('chat.createSessionFailed'), 'error');
+      } else {
+        useUI.getState().pushToast(tr('chat.createSessionError'), 'error');
+      }
       throw e;
     }
   },
