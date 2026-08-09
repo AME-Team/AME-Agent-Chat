@@ -7,7 +7,7 @@
  */
 import type { Hono } from 'hono';
 import type { Permission } from '@opencode-ai/sdk';
-import { getOpencodeClient } from '../opencode.js';
+import { callOpencode, getOpencodeClient } from '../opencode.js';
 import { env } from '../env.js';
 
 /** Gatekeeper のポリシー判定 */
@@ -54,10 +54,12 @@ async function respond(
   permissionId: string,
   response: 'once' | 'always' | 'reject',
 ): Promise<void> {
-  const { error } = await getOpencodeClient().postSessionIdPermissionsPermissionId({
-    path: { id: sessionId, permissionID: permissionId },
-    body: { response },
-  });
+  const { error } = await callOpencode(() =>
+    getOpencodeClient().postSessionIdPermissionsPermissionId({
+      path: { id: sessionId, permissionID: permissionId },
+      body: { response },
+    }),
+  );
   if (error) console.error(`[permissions] respond ${response} failed:`, error);
 }
 

@@ -138,8 +138,11 @@ export async function executeCommand(name: string, args: string): Promise<void> 
   switch (name) {
     case '/new':
     case '/clear':
-      await app.createSession();
-      ui.pushToast(tr('command.newCreated'), 'success');
+      // 作成失敗時は createSession がエラートーストを表示済み (未処理 rejection を回避)
+      {
+        const newId = await app.createSession().catch(() => undefined);
+        if (newId) ui.pushToast(tr('command.newCreated'), 'success');
+      }
       return;
     case '/help':
       ui.setHelpOpen(true);

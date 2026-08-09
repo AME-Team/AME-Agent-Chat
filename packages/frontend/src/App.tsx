@@ -40,7 +40,7 @@ export function App() {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         if (!typing) {
           e.preventDefault();
-          void createSession();
+          void createSession().catch(() => {});
         }
       } else if (e.key === '?' && !typing && !e.isComposing) {
         useUI.getState().setHelpOpen(true);

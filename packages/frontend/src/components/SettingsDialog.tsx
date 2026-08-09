@@ -105,21 +105,22 @@ export function ModelSettingsDialog() {
           </h3>
           {TIERS.map((tier) => (
             <div key={tier} className="rounded-md border border-gray-200 p-3 dark:border-gray-700">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="w-16 text-sm font-medium">{tier}</span>
+              {/* モバイルは縦展開、デスクトップは 1 行に収める (#43) */}
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center">
+                <span className="text-sm font-medium sm:w-16">{tier}</span>
                 <input
                   value={tiers[tier].provider}
                   onChange={(e) => setTier(tier, { provider: e.target.value })}
                   placeholder={t('settings.provider')}
                   aria-label={`${tier} ${t('settings.provider')}`}
-                  className="flex-1 rounded border border-gray-200 bg-transparent px-2 py-1 text-sm outline-none focus:border-primary dark:border-gray-600"
+                  className="min-w-0 rounded border border-gray-200 bg-transparent px-2 py-1 text-sm outline-none focus:border-primary dark:border-gray-600"
                 />
                 <input
                   value={tiers[tier].model}
                   onChange={(e) => setTier(tier, { model: e.target.value })}
                   placeholder={t('settings.model')}
                   aria-label={`${tier} ${t('settings.model')}`}
-                  className="flex-1 rounded border border-gray-200 bg-transparent px-2 py-1 text-sm outline-none focus:border-primary dark:border-gray-600"
+                  className="min-w-0 rounded border border-gray-200 bg-transparent px-2 py-1 text-sm outline-none focus:border-primary dark:border-gray-600"
                 />
                 <select
                   value={tiers[tier].reasoningEffort}
@@ -127,7 +128,7 @@ export function ModelSettingsDialog() {
                     setTier(tier, { reasoningEffort: e.target.value as ReasoningEffort })
                   }
                   aria-label={`${tier} ${t('settings.reasoning')}`}
-                  className="rounded border border-gray-200 bg-transparent px-2 py-1 text-sm outline-none dark:border-gray-600"
+                  className="min-w-0 rounded border border-gray-200 bg-transparent px-2 py-1 text-sm outline-none dark:border-gray-600"
                 >
                   {REASONING.map((r) => (
                     <option key={r} value={r}>
