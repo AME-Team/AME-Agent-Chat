@@ -7,6 +7,7 @@
  */
 import { serve } from '@hono/node-server';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { fileURLToPath } from 'node:url';
 import { createApp } from './server.js';
 import { createDb, DB_PATH } from './db/index.js';
 
@@ -15,7 +16,15 @@ const host = process.env.HOST ?? '0.0.0.0';
 
 const db = createDb();
 // 起動時に未適用マイグレーションを自動適用する (新規環境では data/ame.db が存在しないため必須)
-migrate(db, { migrationsFolder: 'drizzle' });
+// CWD 非依存の絶対パスで解決する (ビルド済みファイルからの起動等に備える)
+const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
+try {
+  migrate(db, { migrationsFolder });
+} catch (err) {
+  console.error(`[gatekeeper] migration failed. DB=${DB_PATH} folder=${migrationsFolder}`);
+  console.error(err);
+  process.exit(1);
+}
 console.log('[gatekeeper] migrations up to date');
 
 const app = createApp(db);
