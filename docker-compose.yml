@@ -11,7 +11,7 @@ services:
     container_name: ame-agent
     # ホストワークスペースを /workspace へ bind mount (要件 #1 §2.4)
     # ※WORKSPACE_DIR の中身はコンテナの node(uid 1000) が読み書きできる必要がある。
-    #   Windows(Docker Desktop) は自動解決。Linux はホスト uid と 1000 を一致推奨。
+    #   Windows / macOS (Docker Desktop) は自動解決。Linux はホスト uid と 1000 を一致推奨。
     volumes:
       - ${WORKSPACE_DIR:-.}:/workspace
     ports:

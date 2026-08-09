@@ -4,7 +4,7 @@ AI エージェント（OpenCode 等）が本リポジトリで作業する際�
 
 ## プロジェクト概要
 
-OpenCode（AI Agent）をリッチな UI で安全・低コスト運用する **Windows 専用** ローカル開発環境。
+OpenCode（AI Agent）をリッチな UI で安全・低コスト運用する **Windows / Linux / macOS 対応** ローカル開発環境。
 pnpm workspace モノレポ。要件は GitHub Issue #1（統合要件書）/ #2（チャット機能要件書）、および分割タスク #3〜#27 を参照。
 
 ## パッケージ構成
@@ -27,6 +27,8 @@ pnpm format             # Prettier 整形
 pnpm format:check
 pnpm dev                # 全パッケージ並列 dev 起動
 pnpm build              # 全パッケージビルド
+pnpm start              # ワンコマンド起動（Docker + Gatekeeper + Frontend + ブラウザ）
+pnpm stop               # 停止（コンテナ down + プロセス終了）
 pnpm -r --filter <pkg> <script>  # 個別パッケージ実行
 ```
 
@@ -42,14 +44,16 @@ docker compose down                                  # 停止
 
 Frontend(51730)/Gatekeeper(58780) はホスト起動。コンテナは Agent Core(30010・公開) + OpenCode(40960・非公開) のみ。
 
+**注意**: コンテナは `node`(uid 1000) で実行。Linux ホストでは `WORKSPACE_DIR` の所有 uid を 1000 に合わせること（Windows / macOS の Docker Desktop は自動解決）。
+
 ## ポート割当（要件 #1 §2.6）
 
-| コンポーネント   | ポート                                                               |
-| ---------------- | -------------------------------------------------------------------- |
-| Frontend (PWA)   | 51730                                                                |
-| Agent Core (BFF) | 30010                                                                |
-| OpenCode Server  | 40960（コンテナ内のみ）                                              |
-| Gatekeeper API   | 58780（Windows ホスト）※要件 §2.6 の 87880 は TCP 上限超過のため修正 |
+| コンポーネント   | ポート                                                          |
+| ---------------- | --------------------------------------------------------------- |
+| Frontend (PWA)   | 51730                                                           |
+| Agent Core (BFF) | 30010                                                           |
+| OpenCode Server  | 40960（コンテナ内のみ）                                         |
+| Gatekeeper API   | 58780（ホスト OS）※要件 §2.6 の 87880 は TCP 上限超過のため修正 |
 
 ## UI 設計
 

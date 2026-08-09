@@ -31,7 +31,7 @@ COPY --chown=node:node packages/ ./packages/
 RUN pnpm install --frozen-lockfile --filter @ame-agent-chat/agent-core...
 
 # bind mount 先 (ホストワークスペース) — 要件 #1 §2.4
-# ※Linux ホストの場合、ホスト側 uid と node(1000) の一致が必要。Windows(Docker Desktop)では自動解決。
+# ※Linux ホストの場合、ホスト側 uid と node(1000) の一致が必要。Windows / macOS (Docker Desktop) では自動解決。
 RUN mkdir -p /workspace
 WORKDIR /workspace
 
