@@ -10,7 +10,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { fileURLToPath } from 'node:url';
 import { createApp } from './server.js';
-import { createDb, DB_PATH } from './db/index.js';
+import { createDb, migrateLegacyDb, DB_PATH } from './db/index.js';
 import type * as schema from './db/schema.js';
 
 const port = Number(process.env.PORT ?? 58780);
@@ -26,7 +26,12 @@ function appliedMigrationCount(db: BetterSQLite3Database<typeof schema>): number
   }
 }
 
-function main(): void {
+async function main(): Promise<void> {
+  // 旧 CWD 基準 DB の引き継ぎが失敗した場合は exitCode=1 で終了する
+  if (!(await migrateLegacyDb())) {
+    process.exitCode = 1;
+    return;
+  }
   const db = createDb();
   // 起動時に未適用マイグレーションを自動適用する (新規環境では data/ame.db が存在しないため必須)
   // CWD 非依存の絶対パスで解決する (ビルド済みファイルからの起動等に備える)
@@ -56,4 +61,4 @@ function main(): void {
   });
 }
 
-main();
+void main();
