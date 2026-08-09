@@ -14,22 +14,28 @@ import { createDb, DB_PATH } from './db/index.js';
 const port = Number(process.env.PORT ?? 58780);
 const host = process.env.HOST ?? '0.0.0.0';
 
-const db = createDb();
-// 起動時に未適用マイグレーションを自動適用する (新規環境では data/ame.db が存在しないため必須)
-// CWD 非依存の絶対パスで解決する (ビルド済みファイルからの起動等に備える)
-const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
-try {
-  migrate(db, { migrationsFolder });
-} catch (err) {
-  console.error(`[gatekeeper] migration failed. DB=${DB_PATH} folder=${migrationsFolder}`);
-  console.error(err);
-  process.exit(1);
+function main(): void {
+  const db = createDb();
+  // 起動時に未適用マイグレーションを自動適用する (新規環境では data/ame.db が存在しないため必須)
+  // CWD 非依存の絶対パスで解決する (ビルド済みファイルからの起動等に備える)
+  const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
+  try {
+    migrate(db, { migrationsFolder });
+  } catch (err) {
+    // stderr がパイプの環境でもログが確実にフラッシュされるよう process.exit ではなく exitCode で終了する
+    console.error(`[gatekeeper] migration failed. DB=${DB_PATH} folder=${migrationsFolder}`);
+    console.error(err);
+    process.exitCode = 1;
+    return;
+  }
+  console.log('[gatekeeper] migrations up to date');
+
+  const app = createApp(db);
+
+  serve({ fetch: app.fetch, port, hostname: host }, (info) => {
+    console.log(`[gatekeeper] listening on http://${host}:${info.port}`);
+    console.log(`[gatekeeper] sqlite: ${DB_PATH}`);
+  });
 }
-console.log('[gatekeeper] migrations up to date');
 
-const app = createApp(db);
-
-serve({ fetch: app.fetch, port, hostname: host }, (info) => {
-  console.log(`[gatekeeper] listening on http://${host}:${info.port}`);
-  console.log(`[gatekeeper] sqlite: ${DB_PATH}`);
-});
+main();

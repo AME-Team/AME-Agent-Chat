@@ -5,10 +5,13 @@
 import Database from 'better-sqlite3';
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as schema from './schema.js';
 
-export const DB_PATH = process.env.AME_DB_PATH ?? resolve('data/ame.db');
+// CWD 非依存でパッケージルートの data/ame.db を指す (マイグレーションフォルダと解決基準を統一)
+export const DB_PATH =
+  process.env.AME_DB_PATH ?? fileURLToPath(new URL('../../data/ame.db', import.meta.url));
 
 export function createDb(): BetterSQLite3Database<typeof schema> {
   mkdirSync(dirname(DB_PATH), { recursive: true });
