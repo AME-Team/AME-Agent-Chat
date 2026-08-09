@@ -2,7 +2,7 @@
 # AME AI Review System — pre-commit profile: full
 # Python + Node + Shell + 設定ファイル + Secret + AI レビューの包括セット。
 # (各フックの実行には対応ツールのインストールが必要。不要なフックは削除してよい)
-minimum_pre_commit_version: '4.0.0'
+minimum_pre_commit_version: "4.0.0"
 fail_fast: true
 
 repos:
@@ -23,7 +23,9 @@ repos:
     rev: v2.3.0
     hooks:
       - id: codespell
-        exclude: ^(pnpm-lock\.yaml|\.ame-review/engines-ts/)
+        # Issue #69: lockfile の圧縮トークンを typo と誤検知するため除外。
+        # engines-ts の TS 側エンジン (SDK ベース) も誤検知回避のため除外。
+        exclude: "(pnpm-lock\\.yaml|package-lock\\.json|yarn\\.lock)$|^\\.ame-review/engines-ts/"
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.21.0
@@ -35,6 +37,8 @@ repos:
     hooks:
       - id: yamllint
         args: [--strict]
+        # Issue #69: lockfile (数千行・長行) は yamllint --strict で大量エラーになるため除外。
+        exclude: "(pnpm-lock\\.yaml|.*-lock\\.(yaml|json)|yarn\\.lock)$"
 
   - repo: https://github.com/koalaman/shellcheck-precommit
     rev: v0.10.0
@@ -43,34 +47,37 @@ repos:
 
   # =========================================================================
   # AME AI Review System — Gate 1 AI review hooks
-  # AI pre-commit review は `python -m ame_ai_review_system.*` を呼ぶ。
-  # 有効化する場合は本モジュールを system Python に導入すること:
-  #   pip install --break-system-packages <wheel>  (または venv 運用)
-  # PEP 668 環境では容易でないため、既定では AI レビューは Gate 2 (PR) に委ね、
-  # Gate 1 は静的解析のみ有効化している。
+  # pre-commit が `language: python` の venv へ wheel を自動導入するため、
+  # 絶対パスのハードコードは不要（各環境で解決される）。
   # =========================================================================
-  # - repo: local
-  #   hooks:
-  #     - id: ai-skip-guard
-  #       name: "AI review skip guard (Issue #26)"
-  #       entry: python -m ame_ai_review_system.skip_guard
-  #       language: system
-  #       pass_filenames: false
-  #       always_run: true
-  #       stages: [pre-commit]
-  #
-  #     - id: ai-precommit-review
-  #       name: "AI Code Review (pre-commit)"
-  #       entry: python -m ame_ai_review_system.precommit_review
-  #       language: system
-  #       pass_filenames: false
-  #       always_run: true
-  #       stages: [pre-commit]
-  #
-  #     - id: ai-review-state-reset
-  #       name: "AI review state reset (post-commit)"
-  #       entry: python -m ame_ai_review_system.post_commit_reset
-  #       language: system
-  #       pass_filenames: false
-  #       always_run: true
-  #       stages: [post-commit]
+  - repo: local
+    hooks:
+      - id: ai-skip-guard
+        name: "AI review skip guard (Issue #26)"
+        entry: python -m ame_ai_review_system.skip_guard
+        language: python
+        additional_dependencies:
+          - ame_ai_review_system @ https://github.com/tarminjapan/AME-AI-Review-System/releases/download/v0.2.3/ame_ai_review_system-0.2.3-py3-none-any.whl
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      - id: ai-precommit-review
+        name: "AI Code Review (pre-commit)"
+        entry: python -m ame_ai_review_system.precommit_review
+        language: python
+        additional_dependencies:
+          - ame_ai_review_system @ https://github.com/tarminjapan/AME-AI-Review-System/releases/download/v0.2.3/ame_ai_review_system-0.2.3-py3-none-any.whl
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      - id: ai-review-state-reset
+        name: "AI review state reset (post-commit)"
+        entry: python -m ame_ai_review_system.post_commit_reset
+        language: python
+        additional_dependencies:
+          - ame_ai_review_system @ https://github.com/tarminjapan/AME-AI-Review-System/releases/download/v0.2.3/ame_ai_review_system-0.2.3-py3-none-any.whl
+        pass_filenames: false
+        always_run: true
+        stages: [post-commit]
