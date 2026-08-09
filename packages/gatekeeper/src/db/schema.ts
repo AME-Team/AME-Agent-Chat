@@ -1,7 +1,7 @@
 /**
  * Gatekeeper SQLite スキーマ (要件 #1 §5, #2 §10)
  *
- * Windows ホストの Gatekeeper API に組み込むローカル永続化。
+ * ホスト OS の Gatekeeper API に組み込むローカル永続化。
  * token_usages は Check Usage (#27) 用に定義のみ・非活性 (要件 #1 §3.2.5)。
  */
 import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
