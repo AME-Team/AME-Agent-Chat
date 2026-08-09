@@ -17,18 +17,30 @@ const stateDir = path.join(os.tmpdir(), 'ame-agent-chat');
 const pidFile = path.join(stateDir, 'pids.json');
 
 const killTree = (pid) => {
-  try {
-    if (isWin) {
-      execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
-    } else {
-      process.kill(-pid, 'SIGTERM');
-    }
-  } catch {
+  const send = (sig) => {
     try {
-      process.kill(pid, 'SIGTERM');
+      if (isWin) {
+        execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
+      } else {
+        process.kill(-pid, sig);
+      }
     } catch {
       // 既に終了済み
     }
+  };
+  send('SIGTERM');
+  if (!isWin) {
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      try {
+        process.kill(-pid, 0);
+      } catch {
+        return;
+      }
+      const wait = new Uint32Array(new SharedArrayBuffer(4));
+      Atomics.wait(wait, 0, 0, 200);
+    }
+    send('SIGKILL');
   }
 };
 

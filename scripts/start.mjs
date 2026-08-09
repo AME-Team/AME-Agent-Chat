@@ -106,6 +106,8 @@ const savePids = ({ gatekeeper, frontend }) =>
     JSON.stringify({ gatekeeper: gatekeeper.pid, frontend: frontend.pid }, null, 2),
   );
 
+let containerStarted = false;
+
 const cleanup = (children) => {
   for (const child of children) {
     try {
@@ -118,10 +120,12 @@ const cleanup = (children) => {
       // 既に終了済み
     }
   }
-  spawnSync('docker', ['compose', '-f', 'docker-compose.yml', 'down'], {
-    cwd: Root,
-    stdio: 'ignore',
-  });
+  if (containerStarted) {
+    spawnSync('docker', ['compose', '-f', 'docker-compose.yml', 'down'], {
+      cwd: Root,
+      stdio: 'ignore',
+    });
+  }
   rmSync(pidFile, { force: true });
 };
 
@@ -185,6 +189,7 @@ async function main() {
       { cwd: Root, env: process.env, stdio: 'inherit' },
     );
     if (compose.status !== 0) throw new Error('docker compose up に失敗しました。');
+    containerStarted = true;
 
     step(6, 'ヘルスチェック...');
     const healthy = await waitReady('http://localhost:30010/health', 120000);
