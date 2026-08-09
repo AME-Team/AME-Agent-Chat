@@ -155,9 +155,9 @@ export const useApp = create<AppState>((set, get) => ({
       set((st) => ({ sessions: [s, ...st.sessions], currentId: s.id, messages: [], tools: [] }));
       return s.id;
     } catch (e) {
-      // OpenCode Server 未起動 (503) のみ未到達として扱う (#44)。
-      // その他のエラーはサーバー実エラーのため reachable は維持する。
-      if (e instanceof ApiError && e.status === 503) {
+      // 未到達 (Agent Core への接続断: status 0 / OpenCode Server 未起動: 503) のみ
+      // reachable=false として扱う (#44)。その他はサーバー実エラーのため reachable を維持する。
+      if (e instanceof ApiError && (e.status === 0 || e.status === 503)) {
         set({ reachable: false });
         useUI.getState().pushToast(tr('chat.createSessionFailed'), 'error');
       } else {

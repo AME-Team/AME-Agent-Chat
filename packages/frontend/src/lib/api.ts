@@ -17,10 +17,16 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
-  });
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', ...init?.headers },
+    });
+  } catch (cause) {
+    // Agent Core 自体に到達できないネットワークエラーは status 0 として正規化 (#44)
+    throw new ApiError(path, 0, { error: 'network unreachable', cause: String(cause) });
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new ApiError(path, res.status, body);
