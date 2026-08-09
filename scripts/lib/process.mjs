@@ -86,6 +86,55 @@ export const isOpencodeProcess = (pid) => {
   }
 };
 
+/** opencode コマンドが PATH に存在するかを確認する (Windows は where / 他は which)。 */
+export const isOpencodeAvailable = () => {
+  try {
+    const cmd = isWin ? 'where' : 'which';
+    return spawnSync(cmd, ['opencode'], { stdio: 'ignore' }).status === 0;
+  } catch {
+    return false;
+  }
+};
+
+/** 指定ポートを占有している PID を返す。検出不能・未占有は null。 */
+export const getPortPid = (port) => {
+  // lsof / PowerShell は同一プロセスを複数行・配列で返すことがあるため先頭要素のみ使う
+  const firstLine = (out) => out.trim().split(/\r?\n/)[0] ?? '';
+  try {
+    if (process.platform === 'linux' || process.platform === 'darwin') {
+      const out = execFileSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      const pid = Number(firstLine(out));
+      return Number.isInteger(pid) && pid > 0 ? pid : null;
+    }
+    if (process.platform === 'win32') {
+      const out = execFileSync(
+        'powershell',
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          `(Get-NetTCPConnection -LocalPort ${port} -State Listen).OwningProcess`,
+        ],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+      );
+      const pid = Number(firstLine(out));
+      return Number.isInteger(pid) && pid > 0 ? pid : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+/** ポートを占有するプロセスが opencode serve かどうか。未占有・検出不能は false。 */
+export const isOpencodeOnPort = (port) => {
+  const pid = getPortPid(port);
+  return pid !== null && isOpencodeProcess(pid);
+};
+
 /** プロセスグループごと段階的終了 (SIGTERM → ポーリング待ち → SIGKILL / Windows は taskkill /T /F) */
 export const killTree = (pid, timeoutMs = 5000) => {
   const send = (sig) => {
@@ -93,10 +142,35 @@ export const killTree = (pid, timeoutMs = 5000) => {
       if (isWin) {
         spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
       } else {
-        process.kill(-pid, sig);
+        // グループリーダー (detached シェル) ならグループごと。PID ファイルは shell の PID、
+        // ポート検出では opencode 本体の PID が来るため、グループ(-pid) と直接(pid) の両方を送る。
+        try {
+          process.kill(-pid, sig);
+        } catch {
+          // グループが無い場合は個別送信で拾う
+        }
+        try {
+          process.kill(pid, sig);
+        } catch {
+          // 既に終了済み
+        }
       }
     } catch {
       // 既に終了済み
+    }
+  };
+  const alive = () => {
+    if (isWin) return false;
+    try {
+      process.kill(-pid, 0);
+      return true;
+    } catch {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
     }
   };
   if (isWin) {
@@ -106,11 +180,7 @@ export const killTree = (pid, timeoutMs = 5000) => {
   send('SIGTERM');
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    try {
-      process.kill(-pid, 0);
-    } catch {
-      return;
-    }
+    if (!alive()) return;
     const wait = new Int32Array(new SharedArrayBuffer(4));
     Atomics.wait(wait, 0, 0, 200);
   }

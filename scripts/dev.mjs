@@ -16,19 +16,35 @@ import {
   waitPort,
   killTree,
   isOpencodeProcess,
+  isOpencodeOnPort,
+  isOpencodeAvailable,
+  getPortPid,
   readPid,
+  isWin,
 } from './lib/process.mjs';
 
 /** 起動した opencode プロセス (spawn 直後に参照可能にする) */
 let opencodeChild = null;
 
 async function startOpencode() {
-  if (await isPortOpen(40960)) {
-    console.log(
-      '[dev] OpenCode Server (http://localhost:40960) は既に起動済みのためスキップします。',
+  if (!isOpencodeAvailable()) {
+    throw new Error(
+      'opencode が PATH にありません。`npm i -g opencode-ai` 等でインストールしてください。',
     );
-    reconcileStalePid();
-    return null;
+  }
+  if (await isPortOpen(40960)) {
+    if (isOpencodeOnPort(40960)) {
+      console.log(
+        '[dev] OpenCode Server (http://localhost:40960) は既に起動済みのためスキップします。',
+      );
+      reconcileStalePid();
+      return null;
+    }
+    const pid = getPortPid(40960);
+    const hint = pid
+      ? `ポート 40960 を opencode 以外のプロセスが占有しています (pid=${pid})。プロセスを終了してから再実行してください。`
+      : 'ポート 40960 が占有されていますが、プロセスを特定できませんでした。`lsof -iTCP:40960` 等で確認してから再実行してください。';
+    throw new Error(hint);
   }
   console.log('[dev] OpenCode Server を起動 (http://localhost:40960)...');
   const out = openSync(opencodeLogFile, 'a');
@@ -54,7 +70,10 @@ async function startOpencode() {
     earlyExit.then((code) => ({ ok: false, exit: code })),
   ]);
   if (outcome.exit !== null) {
-    if (outcome.exit === 127) {
+    // POSIX は 127、Windows (cmd.exe) は 9009 で「コマンド不在」を表す。
+    // 事前に isOpencodeAvailable() で存在確認しているため、汎用の code 1 は含めない。
+    const notFoundCodes = isWin ? new Set([9009, 127]) : new Set([127]);
+    if (notFoundCodes.has(outcome.exit)) {
       throw new Error(
         'opencode が PATH にありません。`npm i -g opencode-ai` 等でインストールしてください。',
       );

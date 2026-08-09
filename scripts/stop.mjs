@@ -9,7 +9,15 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Root, opencodePidFile, killTree, isOpencodeProcess, readPid } from './lib/process.mjs';
+import {
+  Root,
+  opencodePidFile,
+  killTree,
+  isOpencodeProcess,
+  isOpencodeOnPort,
+  readPid,
+  getPortPid,
+} from './lib/process.mjs';
 
 const pidFile = path.join(os.tmpdir(), 'ame-agent-chat', 'pids.json');
 
@@ -49,6 +57,13 @@ if (opencodePid) {
   rmSync(opencodePidFile, { force: true });
 } else {
   console.log('OpenCode PID ファイルが見つかりません。');
+}
+
+// SIGKILL 等で dev.mjs の cleanup が走らず、PID ファイル無しで opencode が残存している場合の復旧
+if (isOpencodeOnPort(40960)) {
+  const portPid = getPortPid(40960);
+  console.log(`ポート 40960 を占有する opencode プロセス (pid=${portPid}) を終了...`);
+  killTree(portPid);
 }
 
 console.log('停止しました。');
