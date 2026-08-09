@@ -14,8 +14,10 @@ const DEFAULT_DB_PATH = fileURLToPath(new URL('../../data/ame.db', import.meta.u
 
 // 旧バージョンは CWD 基準の data/ame.db を既定値としており、別 CWD から起動していた環境では
 // 既存データが参照されなくなるため、新パスに DB が無く旧 CWD に DB がある場合のみ引き継ぐ。
+// AME_DB_PATH が明示指定されている場合は env が優先されるためレガシー引き継ぎは行わない。
 const LEGACY_DB_PATH = resolve('data/ame.db');
 if (
+  !process.env.AME_DB_PATH &&
   LEGACY_DB_PATH !== DEFAULT_DB_PATH &&
   existsSync(LEGACY_DB_PATH) &&
   !existsSync(DEFAULT_DB_PATH)

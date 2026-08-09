@@ -16,6 +16,9 @@ pnpm workspace モノレポ。
 
 > OpenCode Server はコンテナ内 `localhost:40960`（非公開）。
 
+> Gatekeeper の SQLite DB は `packages/gatekeeper/data/ame.db` に保存される（CWD 非依存）。
+> 旧バージョンでカレントディレクトリ基準の `data/ame.db` に保存していた場合、初回起動時に自動で引き継がれる。
+
 ## クイックスタート
 
 ### ローカル開発（ホストで各パッケージ起動）
