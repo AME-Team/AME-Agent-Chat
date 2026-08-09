@@ -33,10 +33,13 @@ const killTree = (pid) => {
 };
 
 console.log('Agent コンテナを停止...');
-spawnSync('docker', ['compose', '-f', 'docker-compose.yml', 'down'], {
+const down = spawnSync('docker', ['compose', '-f', 'docker-compose.yml', 'down'], {
   cwd: Root,
   stdio: 'inherit',
 });
+if (down.status !== 0) {
+  console.warn('警告: docker compose down に失敗しました。コンテナが残っている場合があります。');
+}
 
 console.log('Gatekeeper / Frontend プロセスを終了...');
 if (existsSync(pidFile)) {

@@ -92,10 +92,9 @@ const spawnService = (name, args) => {
   });
   child.on('error', onSpawnError(name));
   child.on('exit', (code, signal) => {
-    if (code !== 0) {
-      console.error(`エラー: ${name} が異常終了しました (code=${code}, signal=${signal})。`);
-      console.error(`  ログ: ${logFile(name)}`);
-    }
+    if (code === null || code === 0) return;
+    console.error(`エラー: ${name} が異常終了しました (code=${code}, signal=${signal})。`);
+    console.error(`  ログ: ${logFile(name)}`);
   });
   child.unref();
   return child;
@@ -119,6 +118,10 @@ const cleanup = (children) => {
       // 既に終了済み
     }
   }
+  spawnSync('docker', ['compose', '-f', 'docker-compose.yml', 'down'], {
+    cwd: Root,
+    stdio: 'ignore',
+  });
   rmSync(pidFile, { force: true });
 };
 
