@@ -56,8 +56,9 @@ repos:
   # 絶対パスのハードコードは不要（各環境で解決される）。
   # 注意: 初回実行時のみ GitHub Releases の wheel 取得にネットワークが必要
   # （以降は pre-commit が環境をキャッシュ）。オフライン/制限環境では、
-  # pip install した Python を Gate 1 に使うか、vendored パッケージを
-  # `language: system` で参照する代替方式を選択すること。
+  # wheel をあらかじめ pip install した Python をフックに使うこと
+  # （entry を python -m ame_ai_review_system.* にして language: system で実行）。
+  # 本リポジトリには本パッケージの vendored コピーは存在しない（wheel が単一情報源）。
   # wheel は供給チェーン対策のため #sha256= で内容を固定する（3 フックで共通）。
   # =========================================================================
   - repo: local
