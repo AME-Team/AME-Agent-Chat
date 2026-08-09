@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { api, type AppSession } from '../lib/api';
 import { tr } from '../lib/i18n';
+import { useUI } from './ui';
 import type { AccentColor, Locale, SessionSortOrder, Theme } from '@ame-agent-chat/shared';
 
 export interface AppMessage {
@@ -148,10 +149,17 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   createSession: async () => {
-    const s = await api.sessions.create();
-    lastCreatedId = s.id;
-    set((st) => ({ sessions: [s, ...st.sessions], currentId: s.id, messages: [], tools: [] }));
-    return s.id;
+    try {
+      const s = await api.sessions.create();
+      lastCreatedId = s.id;
+      set((st) => ({ sessions: [s, ...st.sessions], currentId: s.id, messages: [], tools: [] }));
+      return s.id;
+    } catch (e) {
+      // OpenCode Server 未起動等で新規セッションを作れない場合は到達不可として表示 (#44)
+      set({ reachable: false });
+      useUI.getState().pushToast(tr('chat.createSessionFailed'), 'error');
+      throw e;
+    }
   },
 
   selectSession: async (id) => {
@@ -226,7 +234,15 @@ export const useApp = create<AppState>((set, get) => ({
 
   sendMessage: async (text, attachments = []) => {
     const { currentId, createSession, messages } = get();
-    const id = currentId ?? (await createSession());
+    let id = currentId;
+    if (!id) {
+      try {
+        id = await createSession();
+      } catch {
+        // 作成失敗時は createSession がエラートーストを表示済み → 送信を中断
+        return;
+      }
+    }
 
     // !Bash (#2 §3.3): サンドボックス実行 → 出力をアシスタントメッセージとして追加
     //   ※ Markdown 画像記法 `![...]` との衝突を回避

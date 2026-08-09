@@ -11,7 +11,7 @@
  */
 import type { Hono } from 'hono';
 import { lookup } from 'node:dns/promises';
-import { getOpencodeClient } from '../opencode.js';
+import { callOpencode, getOpencodeClient } from '../opencode.js';
 import { env } from '../env.js';
 import { resolveTaskModel, shouldCompact } from '../router.js';
 
@@ -59,8 +59,10 @@ export function registerMessageRoutes(app: Hono): void {
   app.get('/api/sessions/:id/messages', async (c) => {
     const id = c.req.param('id');
     const limit = Number(c.req.query('limit') ?? 0) || undefined;
-    const { data, error } = await api.session.messages({ path: { id }, query: { limit } });
-    if (error) return c.json({ error }, 500);
+    const { data, error, unreachable } = await callOpencode(() =>
+      api.session.messages({ path: { id }, query: { limit } }),
+    );
+    if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json(data);
   });
 
@@ -74,11 +76,13 @@ export function registerMessageRoutes(app: Hono): void {
     //   Markdown 画像記法 `![...]` とは衝突を回避
     if (body.text.trim().startsWith('!') && !body.text.trim().startsWith('![')) {
       const command = body.text.trim().slice(1).trim();
-      const shell = await api.session.shell({
-        path: { id },
-        body: { agent: body.agent ?? 'build', command },
-      });
-      if (shell.error) return c.json({ error: shell.error }, 500);
+      const shell = await callOpencode(() =>
+        api.session.shell({
+          path: { id },
+          body: { agent: body.agent ?? 'build', command },
+        }),
+      );
+      if (shell.error) return c.json({ error: shell.error }, shell.unreachable ? 503 : 500);
       return c.json({ bash: { command, output: shell.data } }, 201);
     }
 
@@ -107,17 +111,19 @@ export function registerMessageRoutes(app: Hono): void {
         }
       }
     }
-    const { data, error } = await api.session.prompt({
-      path: { id },
-      body: {
-        parts,
-        model:
-          body.model ??
-          (routed ? { providerID: routed.providerID, modelID: routed.modelID } : undefined),
-        agent: body.agent,
-      },
-    });
-    if (error) return c.json({ error }, 500);
+    const { data, error, unreachable } = await callOpencode(() =>
+      api.session.prompt({
+        path: { id },
+        body: {
+          parts,
+          model:
+            body.model ??
+            (routed ? { providerID: routed.providerID, modelID: routed.modelID } : undefined),
+          agent: body.agent,
+        },
+      }),
+    );
+    if (error) return c.json({ error }, unreachable ? 503 : 500);
     // レスポンススキーマを常に一定に保つ (model 指定有無で形状を変えない)
     return c.json({ info: data, routed: routed ?? null }, 201);
   });
@@ -126,8 +132,10 @@ export function registerMessageRoutes(app: Hono): void {
   app.get('/api/files', async (c) => {
     const q = c.req.query('q') ?? '';
     if (!q) return c.json([]);
-    const { data, error } = await api.find.files({ query: { query: q, dirs: 'false' } });
-    if (error) return c.json({ error }, 500);
+    const { data, error, unreachable } = await callOpencode(() =>
+      api.find.files({ query: { query: q, dirs: 'false' } }),
+    );
+    if (error) return c.json({ error }, unreachable ? 503 : 500);
     // SDK は string[] を返すが、防御的に検証して正規化
     if (!Array.isArray(data)) return c.json([]);
     return c.json(data.filter((p): p is string => typeof p === 'string'));
@@ -165,8 +173,10 @@ export function registerMessageRoutes(app: Hono): void {
 
   app.post('/api/sessions/:id/abort', async (c) => {
     const id = c.req.param('id');
-    const { data, error } = await api.session.abort({ path: { id } });
-    if (error) return c.json({ error }, 500);
+    const { data, error, unreachable } = await callOpencode(() =>
+      api.session.abort({ path: { id } }),
+    );
+    if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json({ ok: data });
   });
 
@@ -175,25 +185,31 @@ export function registerMessageRoutes(app: Hono): void {
     const body = await c.req.json<{ command: string; arguments?: string }>();
     if (!body.command) return c.json({ error: 'command is required' }, 400);
 
-    const { data, error } = await api.session.command({
-      path: { id },
-      body: { command: body.command, arguments: body.arguments ?? '' },
-    });
-    if (error) return c.json({ error }, 500);
+    const { data, error, unreachable } = await callOpencode(() =>
+      api.session.command({
+        path: { id },
+        body: { command: body.command, arguments: body.arguments ?? '' },
+      }),
+    );
+    if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json(data);
   });
 
   app.post('/api/sessions/:id/summarize', async (c) => {
     const id = c.req.param('id');
-    const { data, error } = await api.session.summarize({ path: { id } });
-    if (error) return c.json({ error }, 500);
+    const { data, error, unreachable } = await callOpencode(() =>
+      api.session.summarize({ path: { id } }),
+    );
+    if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json(data);
   });
 
   app.post('/api/sessions/:id/init', async (c) => {
     const id = c.req.param('id');
-    const { data, error } = await api.session.init({ path: { id } });
-    if (error) return c.json({ error }, 500);
+    const { data, error, unreachable } = await callOpencode(() =>
+      api.session.init({ path: { id } }),
+    );
+    if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json(data);
   });
 }
