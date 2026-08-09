@@ -3,6 +3,9 @@
 # Python + Node + Shell + 設定ファイル + Secret + AI レビューの包括セット。
 # (各フックの実行には対応ツールのインストールが必要。不要なフックは削除してよい)
 minimum_pre_commit_version: "4.0.0"
+# post-commit は下記 ai-review-state-reset フック（stages: [post-commit]）に必要。
+# デフォルトでは pre-commit install で post-commit が入らないため明示指定する。
+default_install_hook_types: [pre-commit, post-commit]
 fail_fast: true
 
 repos:
@@ -49,6 +52,10 @@ repos:
   # AME AI Review System — Gate 1 AI review hooks
   # pre-commit が `language: python` の venv へ wheel を自動導入するため、
   # 絶対パスのハードコードは不要（各環境で解決される）。
+  # 注意: 初回実行時のみ GitHub Releases の wheel 取得にネットワークが必要
+  # （以降は pre-commit が環境をキャッシュ）。オフライン/制限環境では、
+  # pip install した Python を Gate 1 に使うか、vendored パッケージを
+  # `language: system` で参照する代替方式を選択すること。
   # =========================================================================
   - repo: local
     hooks:

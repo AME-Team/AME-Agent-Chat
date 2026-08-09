@@ -30,6 +30,8 @@ jobs:
     # Issue #70: 前方一致の誤発火を防ぐため /request-review・/review の完全一致または
     # 空白区切りの引数付きのみに限定する。実ワークフロー (.github/workflows/review_command.yml)
     # と必ず同期すること (Issue #68/#70/#71)。
+    # 注: 式言語では \t/\n のエスケープはリテラル扱いになるため、コマンド直後の改行区切りの
+    # 本文は扱わない。コマンド検証の単一情報源は reusable workflow (review-command.yml) 側。
     if: >-
       github.event_name == 'workflow_dispatch' || (github.event.issue.pull_request != null &&
        github.event.comment.user.login != 'ame-ai-reviewer[bot]' &&
