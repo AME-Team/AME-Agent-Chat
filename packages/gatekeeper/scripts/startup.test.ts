@@ -1,0 +1,76 @@
+/**
+ * Gatekeeper 起動契約の統合テスト (node:test)
+ * ワークスペースルート (CWD 非依存) からサーバーを起動し、
+ * 起動時マイグレーションが適用されて /api/settings が 200 を返すことを検証する。
+ */
+import { spawn, type ChildProcess } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { after, before, test } from 'node:test';
+import assert from 'node:assert/strict';
+
+const workspaceRoot = fileURLToPath(new URL('../../..', import.meta.url));
+const tsxCli = fileURLToPath(new URL('../node_modules/tsx/dist/cli.mjs', import.meta.url));
+
+let child: ChildProcess | undefined;
+let baseUrl = '';
+let dbDir = '';
+
+before(async () => {
+  dbDir = mkdtempSync(join(tmpdir(), 'gatekeeper-startup-'));
+  const port = 60000 + Math.floor(Math.random() * 1000);
+  baseUrl = `http://127.0.0.1:${port}`;
+
+  const proc = spawn(
+    process.execPath,
+    [tsxCli, join('packages', 'gatekeeper', 'src', 'index.ts')],
+    {
+      cwd: workspaceRoot,
+      env: {
+        ...process.env,
+        PORT: String(port),
+        HOST: '127.0.0.1',
+        AME_DB_PATH: join(dbDir, 'ame.db'),
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+  child = proc;
+
+  const stderr: string[] = [];
+  proc.stderr?.on('data', (chunk) => stderr.push(String(chunk)));
+
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('server did not start')), 15000);
+    proc.stdout?.on('data', (chunk) => {
+      if (String(chunk).includes('listening')) {
+        clearTimeout(timeout);
+        resolve();
+      }
+    });
+    proc.on('exit', (code) => {
+      clearTimeout(timeout);
+      reject(new Error(`server exited early with code ${code}: ${stderr.join('')}`));
+    });
+  });
+});
+
+after(() => {
+  child?.kill('SIGTERM');
+  if (dbDir) rmSync(dbDir, { recursive: true, force: true });
+});
+
+test('起動時にマイグレーションが適用され /api/settings が 200 を返す', async () => {
+  const res = await fetch(`${baseUrl}/api/settings`);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), {});
+});
+
+test('/health が 200 を返す', async () => {
+  const res = await fetch(`${baseUrl}/health`);
+  assert.equal(res.status, 200);
+  const body = (await res.json()) as { status: string };
+  assert.equal(body.status, 'ok');
+});

@@ -7,18 +7,31 @@
  */
 import { serve } from '@hono/node-server';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { fileURLToPath } from 'node:url';
 import { createApp } from './server.js';
 import { createDb, DB_PATH } from './db/index.js';
+import type * as schema from './db/schema.js';
 
 const port = Number(process.env.PORT ?? 58780);
 const host = process.env.HOST ?? '0.0.0.0';
+
+/** 適用済みマイグレーション数 (migrate 実行前後で差分を取る) */
+function appliedMigrationCount(db: BetterSQLite3Database<typeof schema>): number {
+  try {
+    const row = db.get<{ c: number }>('SELECT COUNT(*) AS c FROM __drizzle_migrations');
+    return row ? Number(row.c) : 0;
+  } catch {
+    return 0;
+  }
+}
 
 function main(): void {
   const db = createDb();
   // 起動時に未適用マイグレーションを自動適用する (新規環境では data/ame.db が存在しないため必須)
   // CWD 非依存の絶対パスで解決する (ビルド済みファイルからの起動等に備える)
   const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
+  const before = appliedMigrationCount(db);
   try {
     migrate(db, { migrationsFolder });
   } catch (err) {
@@ -28,7 +41,12 @@ function main(): void {
     process.exitCode = 1;
     return;
   }
-  console.log('[gatekeeper] migrations up to date');
+  const applied = appliedMigrationCount(db) - before;
+  if (applied > 0) {
+    console.log(`[gatekeeper] applied ${applied} migration(s)`);
+  } else {
+    console.log('[gatekeeper] migrations up to date');
+  }
 
   const app = createApp(db);
 
