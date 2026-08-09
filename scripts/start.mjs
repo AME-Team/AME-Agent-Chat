@@ -6,7 +6,7 @@
  * Docker 確認 → Gatekeeper(ホスト) 起動 → Frontend 起動 → compose up → ヘルスチェック → ブラウザ表示
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, openSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +20,7 @@ const logFile = (name) => path.join(stateDir, `${name}.log`);
 
 mkdirSync(stateDir, { recursive: true });
 
-const step = (n, msg) => console.log(`[${n}/5] ${msg}`);
+const step = (n, msg) => console.log(`[${n}/6] ${msg}`);
 const dockerReady = () => spawnSync('docker', ['info'], { stdio: 'ignore' }).status === 0;
 const waitFor = async (fn, timeoutMs, intervalMs) => {
   const deadline = Date.now() + timeoutMs;
@@ -31,7 +31,27 @@ const waitFor = async (fn, timeoutMs, intervalMs) => {
   return false;
 };
 
-const children = [];
+const isAlive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const checkRunning = () => {
+  if (!existsSync(pidFile)) return;
+  const { gatekeeper, frontend } = JSON.parse(readFileSync(pidFile, 'utf8'));
+  const alive = [gatekeeper, frontend].filter((pid) => pid && isAlive(pid));
+  if (alive.length > 0) {
+    throw new Error(
+      '既にプロセスが稼働しています。先に `pnpm stop` を実行してから再起動してください。',
+    );
+  }
+  rmSync(pidFile, { force: true });
+};
+
 const onSpawnError = (name) => (err) =>
   console.error(`エラー: ${name} を起動できませんでした (${err.message})`);
 
@@ -71,18 +91,23 @@ const spawnService = (name, args) => {
     stdio: ['ignore', out, out],
   });
   child.on('error', onSpawnError(name));
+  child.on('exit', (code, signal) => {
+    if (code !== 0) {
+      console.error(`エラー: ${name} が異常終了しました (code=${code}, signal=${signal})。`);
+      console.error(`  ログ: ${logFile(name)}`);
+    }
+  });
   child.unref();
-  children.push(child);
   return child;
 };
 
-const savePids = () =>
+const savePids = ({ gatekeeper, frontend }) =>
   writeFileSync(
     pidFile,
-    JSON.stringify({ gatekeeper: children[0]?.pid, frontend: children[1]?.pid }, null, 2),
+    JSON.stringify({ gatekeeper: gatekeeper.pid, frontend: frontend.pid }, null, 2),
   );
 
-const cleanup = () => {
+const cleanup = (children) => {
   for (const child of children) {
     try {
       if (isWin) {
@@ -97,7 +122,23 @@ const cleanup = () => {
   rmSync(pidFile, { force: true });
 };
 
+const waitReady = async (url, timeoutMs) =>
+  waitFor(
+    async () => {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    },
+    timeoutMs,
+    2000,
+  );
+
 async function main() {
+  checkRunning();
+
   step(1, 'Docker を確認...');
   if (!dockerReady()) {
     if (isWin || isMac) {
@@ -113,15 +154,27 @@ async function main() {
   }
 
   step(2, 'Gatekeeper API を起動 (ホスト)...');
-  spawnService('gatekeeper', ['--filter', '@ame-agent-chat/gatekeeper', 'start']);
+  const gatekeeper = spawnService('gatekeeper', [
+    '--filter',
+    '@ame-agent-chat/gatekeeper',
+    'start',
+  ]);
 
   step(3, 'Frontend (PWA) を起動...');
-  spawnService('frontend', ['--filter', '@ame-agent-chat/frontend', 'dev']);
+  const frontend = spawnService('frontend', ['--filter', '@ame-agent-chat/frontend', 'dev']);
 
-  savePids();
+  savePids({ gatekeeper, frontend });
 
+  const children = [gatekeeper, frontend];
   try {
-    step(4, 'Agent コンテナを起動...');
+    step(4, 'Gatekeeper / Frontend の起動確認...');
+    const gatekeeperReady = await waitReady('http://localhost:58780/health', 60000);
+    const frontendReady = await waitReady('http://localhost:51730', 60000);
+    if (!gatekeeperReady)
+      throw new Error('Gatekeeper が起動しませんでした。ログを確認してください。');
+    if (!frontendReady) throw new Error('Frontend が起動しませんでした。ログを確認してください。');
+
+    step(5, 'Agent コンテナを起動...');
     process.env.WORKSPACE_DIR = Root;
     const compose = spawnSync(
       'docker',
@@ -130,27 +183,14 @@ async function main() {
     );
     if (compose.status !== 0) throw new Error('docker compose up に失敗しました。');
 
-    step(5, 'ヘルスチェック...');
-    const healthy = await waitFor(
-      async () => {
-        try {
-          const res = await fetch('http://localhost:30010/health', {
-            signal: AbortSignal.timeout(3000),
-          });
-          return res.ok;
-        } catch {
-          return false;
-        }
-      },
-      120000,
-      2000,
-    );
+    step(6, 'ヘルスチェック...');
+    const healthy = await waitReady('http://localhost:30010/health', 120000);
     if (!healthy)
       throw new Error(
         'Agent Core のヘルスチェックがタイムアウトしました。ログを確認してください。',
       );
   } catch (err) {
-    cleanup();
+    cleanup(children);
     throw err;
   }
 
