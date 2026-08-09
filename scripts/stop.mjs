@@ -7,19 +7,15 @@
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import {
   Root,
+  pidsFile,
   opencodePidFile,
   killTree,
   isOpencodeProcess,
-  isOpencodeOnPort,
   readPid,
   getPortPid,
 } from './lib/process.mjs';
-
-const pidFile = path.join(os.tmpdir(), 'ame-agent-chat', 'pids.json');
 
 console.log('Agent コンテナを停止...');
 const down = spawnSync('docker', ['compose', '-f', 'docker-compose.yml', 'down'], {
@@ -31,12 +27,12 @@ if (down.status !== 0) {
 }
 
 console.log('Gatekeeper / Frontend プロセスを終了...');
-if (existsSync(pidFile)) {
-  const { gatekeeper, frontend } = JSON.parse(readFileSync(pidFile, 'utf8'));
+if (existsSync(pidsFile)) {
+  const { gatekeeper, frontend } = JSON.parse(readFileSync(pidsFile, 'utf8'));
   for (const pid of [gatekeeper, frontend]) {
     if (pid) killTree(pid);
   }
-  rmSync(pidFile, { force: true });
+  rmSync(pidsFile, { force: true });
 } else {
   console.log('PID ファイルが見つかりません。手動でプロセスを終了してください。');
 }
@@ -59,9 +55,13 @@ if (opencodePid) {
   console.log('OpenCode PID ファイルが見つかりません。');
 }
 
-// SIGKILL 等で dev.mjs の cleanup が走らず、PID ファイル無しで opencode が残存している場合の復旧
-if (isOpencodeOnPort(40960)) {
-  const portPid = getPortPid(40960);
+// SIGKILL 等で dev.mjs の cleanup が走らず、PID ファイル無しで opencode が残存している場合の復旧。
+// ※dev.mjs が起動した分に限らず、ポート 40960 を占有する opencode serve は全て停止対象とする
+//   （`pnpm stop` は「全停止」コマンドであり、手動起動分も意図的に終了する）。
+//   取得と検証は kill 直前の単一実行とし、null ガード + 対象検証の両方を満たしてから kill する
+//   （TOCTOU と PID 再利用・誤 kill の回避）。
+const portPid = getPortPid(40960);
+if (portPid !== null && isOpencodeProcess(portPid)) {
   console.log(`ポート 40960 を占有する opencode プロセス (pid=${portPid}) を終了...`);
   killTree(portPid);
 }

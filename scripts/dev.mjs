@@ -56,14 +56,13 @@ async function startOpencode() {
     stdio: ['ignore', out, out],
   });
   opencodeChild = child;
-  child.on('error', (err) =>
-    console.error(`[dev] エラー: opencode を起動できませんでした (${err.message})`),
-  );
   child.unref();
   writeFileSync(opencodePidFile, JSON.stringify({ opencode: child.pid }, null, 2));
   closeSync(out);
-  const earlyExit = new Promise((resolve) => {
+  // spawn 失敗 (ex. コマンド不在・権限不足) は 'exit' が発火しないため、rejection として即中断する
+  const earlyExit = new Promise((resolve, reject) => {
     child.on('exit', (code) => resolve(code));
+    child.on('error', (err) => reject(err));
   });
   const outcome = await Promise.race([
     waitPort(40960, 30000, 1000).then((ok) => ({ ok, exit: null })),

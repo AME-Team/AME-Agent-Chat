@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 export const Root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const isWin = process.platform === 'win32';
 export const stateDir = path.join(os.tmpdir(), 'ame-agent-chat');
+export const pidsFile = path.join(stateDir, 'pids.json');
 export const opencodePidFile = path.join(stateDir, 'opencode.pid');
 export const opencodeLogFile = path.join(stateDir, 'opencode.log');
 
