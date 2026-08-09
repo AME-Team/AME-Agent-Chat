@@ -9,8 +9,9 @@
     "start": "tsx src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
+    "test": "node --import tsx --test scripts/startup.test.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src scripts"
   },
   "dependencies": {
     "@ame-agent-chat/shared": "workspace:*",
