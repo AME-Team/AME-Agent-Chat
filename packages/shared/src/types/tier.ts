@@ -26,15 +26,15 @@ export type EffortMatrix = Record<ModelTier, ReasoningEffort>;
 
 /** Effort プリセット定義テーブル (要件 #1 §3.2.3) */
 export const EFFORT_MATRICES: Record<EffortPreset, EffortMatrix> = {
-  // Deep: High×High / High×Middle / High×Low
+  // Deep: High×High / Middle×Middle / Low×Low
   deep: { high: 'high', middle: 'middle', low: 'low' },
-  // Smart: High×High / Middle×High / Middle×Low
+  // Smart: High×High / Middle×High / Low×Low
   smart: { high: 'high', middle: 'high', low: 'low' },
   // Normal: High×Middle / Middle×Middle / Low×Low
   normal: { high: 'middle', middle: 'middle', low: 'low' },
-  // Lite: Middle×High / Low×Middle / Low×Low
-  lite: { high: 'high', middle: 'middle', low: 'low' },
-  // Rush: Middle×Low / Low×Low / Low×Low
+  // Lite: High×Middle / Middle×Low / Low×Low
+  lite: { high: 'middle', middle: 'low', low: 'low' },
+  // Rush: High×Low / Middle×Low / Low×Low
   rush: { high: 'low', middle: 'low', low: 'low' },
 };
 

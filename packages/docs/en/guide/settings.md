@@ -58,7 +58,7 @@ Choosing one of the 5 presets for the "quality × cost" balance applies the reas
 | Deep   | High      | Middle      | Low      | Highest quality, deep thinking |
 | Smart  | High      | High        | Low      | Accuracy first                 |
 | Normal | Middle    | Middle      | Low      | Balanced (default)             |
-| Lite   | High      | Middle      | Low      | Lightweight, low cost          |
+| Lite   | Middle    | Low         | Low      | Lightweight, low cost          |
 | Rush   | Low       | Low         | Low      | Fastest, cheapest              |
 
 ### Context compression

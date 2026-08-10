@@ -58,7 +58,7 @@
 | Deep       | High        | Middle        | Low        | 最高品質・じっくり考える |
 | Smart      | High        | High          | Low        | 精度優先                 |
 | Normal     | Middle      | Middle        | Low        | バランス（既定）         |
-| Lite       | High        | Middle        | Low        | 軽量・低コスト           |
+| Lite       | Middle      | Low           | Low        | 軽量・低コスト           |
 | Rush       | Low         | Low           | Low        | 最速・最安               |
 
 ### コンテキスト圧縮

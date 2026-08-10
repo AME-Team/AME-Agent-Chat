@@ -71,6 +71,8 @@ export default defineConfig({
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
     ['link', { rel: 'stylesheet', href: googleFontsStylesheet }],
+    // favicon は AME ブランドマーク（Clarity Teal #0F766E）を使用するため、theme-color
+    // （Trust Blue #005B99）とは意図的に異なる。ブランドマークは asset/avatar.svg と共通。
     ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}favicon.svg` }],
     ['meta', { name: 'theme-color', content: '#005B99' }],
     ['meta', { property: 'og:type', content: 'website' }],

@@ -121,7 +121,9 @@ function main() {
     .then((child) => {
       opencodeChild = child;
       console.log('[dev] 全パッケージを並列起動...');
-      const dev = spawn('pnpm', ['-r', '--parallel', 'run', 'dev'], {
+      // docs は VitePress のドキュメントサイト専用パッケージのためランタイム起動から除外
+      // （`pnpm docs:dev` で個別起動する）。
+      const dev = spawn('pnpm', ['-r', '--filter', '!@ame-agent-chat/docs', '--parallel', 'run', 'dev'], {
         cwd: Root,
         env: process.env,
         shell: true,

@@ -79,5 +79,5 @@
 | Deep       | High        | Middle        | Low        |
 | Smart      | High        | High          | Low        |
 | Normal     | Middle      | Middle        | Low        |
-| Lite       | High        | Middle        | Low        |
+| Lite       | Middle      | Low           | Low        |
 | Rush       | Low         | Low           | Low        |
