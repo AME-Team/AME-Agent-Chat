@@ -4,41 +4,16 @@ AME Agent Chat is a **pnpm workspace monorepo** made of five packages, with an O
 
 ## Overall layout
 
-```
-┌─────────────────────── HOST OS ───────────────────────┐
-│                                                       │
-│  Browser ──► Frontend (React PWA, :51730)             │
-│               │  Vite proxy /api → :30010              │
-│               │  EventSource /api/events (SSE)         │
-│               ▼                                        │
-│  ┌─────────────────────────────────────────────┐      │
-│  │ Gatekeeper (Hono + SQLite, :58780)          │      │
-│  │  - policy classification (classify)          │      │
-│  │  - session / message / settings persistence │      │
-│  │  - approval audit log · token usage         │      │
-│  └───────▲─────────────────────────────────────┘      │
-│          │ HTTP (settings / usage / approvals / search)│
-└──────────┼─────────────────────────────────────────────┘
-           │ host.docker.internal:58780 (container) / :58780 (dev)
-┌──────────▼─────────────────── CONTAINER ───────────────┐
-│  Agent Core (Hono BFF, :30010) ◄── published port       │
-│    ├── LLM router (regex tier classification)           │
-│    ├── @opencode-ai/sdk                                 │
-│    └── SSE proxy (/api/events)                          │
-│          │ HTTP (localhost:40960)                       │
-│  OpenCode Server (opencode serve, :40960) ◄─ private    │
-│    └── runs on the workspace (/workspace bind mount)    │
-└─────────────────────────────────────────────────────────┘
-```
+<ArchitectureDiagram variant="en" />
 
 ## Roles of each component
 
-| Package               | Role                                                                            | Port  |
-| --------------------- | ------------------------------------------------------------------------------- | ----- |
-| `packages/frontend`   | React PWA. Chat UI, session management, settings UI                             | 51730 |
-| `packages/agent-core` | Hono BFF. OpenCode SDK connection, LLM router, SSE proxy, approval coordination | 30010 |
-| `packages/gatekeeper` | Hono + SQLite. File-I/O policy, persistence, approval audit, usage aggregation  | 58780 |
-| `packages/shared`     | Shared type definitions (Tier / Effort / Session / SSE / Command, etc.)         | —     |
+| Package               | Role                                                                                    | Port        |
+| --------------------- | --------------------------------------------------------------------------------------- | ----------- |
+| `packages/frontend`   | React PWA. Chat UI, session management, settings UI                                     | 51730       |
+| `packages/agent-core` | Hono BFF. OpenCode SDK connection, LLM router, SSE proxy, approval coordination         | 30010       |
+| `packages/gatekeeper` | Hono + SQLite. File-I/O policy, persistence, approval audit, usage aggregation          | 58780       |
+| `packages/shared`     | Shared type definitions (Tier / Effort / Session / SSE / Command, etc.)                 | —           |
 | `packages/docs`       | Documentation site (VitePress, ja/en, published on GitHub Pages). Not a runtime package | 51740 (dev) |
 
 ## Request flow

@@ -4,41 +4,16 @@ AME Agent Chat は **pnpm workspace モノレポ** で構成された 5 つの�
 
 ## 全体構成
 
-```
-┌─────────────────────── HOST OS ───────────────────────┐
-│                                                       │
-│  Browser ──► Frontend (React PWA, :51730)             │
-│               │  Vite proxy /api → :30010              │
-│               │  EventSource /api/events (SSE)         │
-│               ▼                                        │
-│  ┌─────────────────────────────────────────────┐      │
-│  │ Gatekeeper (Hono + SQLite, :58780)          │      │
-│  │  - ポリシー判定 (classify)                   │      │
-│  │  - セッション/メッセージ/設定の永続化        │      │
-│  │  - 承認監査ログ・トークン使用量              │      │
-│  └───────▲─────────────────────────────────────┘      │
-│          │ HTTP (設定/使用量/承認/検索)                 │
-└──────────┼─────────────────────────────────────────────┘
-           │ host.docker.internal:58780 (コンテナ) / :58780 (dev)
-┌──────────▼─────────────────── CONTAINER ───────────────┐
-│  Agent Core (Hono BFF, :30010) ◄── 公開ポート           │
-│    ├── LLM ルーター (regex でティア判定)                │
-│    ├── @opencode-ai/sdk                                 │
-│    └── SSE プロキシ (/api/events)                       │
-│          │ HTTP (localhost:40960)                       │
-│  OpenCode Server (opencode serve, :40960) ◄─ 非公開    │
-│    └── ワークスペース (/workspace bind mount) で実行     │
-└─────────────────────────────────────────────────────────┘
-```
+<ArchitectureDiagram variant="ja" />
 
 ## 各コンポーネントの役割
 
-| パッケージ            | 役割                                                                   | ポート |
-| --------------------- | ---------------------------------------------------------------------- | ------ |
-| `packages/frontend`   | React PWA。チャット UI・セッション管理・設定 UI                        | 51730  |
-| `packages/agent-core` | Hono 製 BFF。OpenCode SDK 接続・LLM ルーター・SSE プロキシ・承認連携   | 30010  |
-| `packages/gatekeeper` | Hono + SQLite。ファイル I/O ポリシー判定・永続化・承認監査・使用量集計 | 58780  |
-| `packages/shared`     | 共通型定義（Tier / Effort / Session / SSE / Command など）             | —      |
+| パッケージ            | 役割                                                                        | ポート       |
+| --------------------- | --------------------------------------------------------------------------- | ------------ |
+| `packages/frontend`   | React PWA。チャット UI・セッション管理・設定 UI                             | 51730        |
+| `packages/agent-core` | Hono 製 BFF。OpenCode SDK 接続・LLM ルーター・SSE プロキシ・承認連携        | 30010        |
+| `packages/gatekeeper` | Hono + SQLite。ファイル I/O ポリシー判定・永続化・承認監査・使用量集計      | 58780        |
+| `packages/shared`     | 共通型定義（Tier / Effort / Session / SSE / Command など）                  | —            |
 | `packages/docs`       | ドキュメントサイト（VitePress・ja/en・GitHub Pages 公開）。ランタイム対象外 | 51740（dev） |
 
 ## リクエストの流れ

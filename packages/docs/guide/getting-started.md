@@ -20,15 +20,7 @@ Windows / Linux / macOS のいずれでも動作し、ブラウザ上でエー�
 
 大きく分けて 4 つのコンポーネントと、その背後で動作する OpenCode Server で構成されます。
 
-```
-Browser ──► Frontend (React PWA, :51730)
-              │
-              ├──► Agent Core (BFF, :30010) ──► OpenCode Server (:40960)
-              │          │
-              │          └──► Gatekeeper (Hono + SQLite, :58780)
-              │
-              └── SSE (EventSource /api/events)
-```
+<SystemLayoutDiagram variant="ja" />
 
 - **Frontend**: チャット UI を提供する React PWA
 - **Agent Core (BFF)**: フロントエンドと OpenCode をつなぐ Hono サーバー。LLM ルーター・SSE プロキシ・承認連携を担当

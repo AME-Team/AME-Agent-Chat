@@ -39,3 +39,6 @@ pnpm-debug.log*
 # misc
 coverage/
 .cache/
+
+# VitePress
+packages/docs/.vitepress/cache/
