@@ -3,33 +3,24 @@ import { computed } from 'vue';
 
 const props = defineProps<{ variant?: 'ja' | 'en' }>();
 
-const t = computed(() =>
-  props.variant === 'en'
-    ? {
-        browser: 'Browser',
-        frontend: 'Frontend',
-        frontendSub: 'React PWA · :51730',
-        agentCore: 'Agent Core',
-        agentCoreSub: 'BFF · :30010',
-        opencode: 'OpenCode Server',
-        opencodeSub: ':40960',
-        gatekeeper: 'Gatekeeper',
-        gatekeeperSub: 'Hono + SQLite · :58780',
-        sse: 'SSE (EventSource /api/events)',
-      }
-    : {
-        browser: 'Browser',
-        frontend: 'Frontend',
-        frontendSub: 'React PWA · :51730',
-        agentCore: 'Agent Core',
-        agentCoreSub: 'BFF · :30010',
-        opencode: 'OpenCode Server',
-        opencodeSub: ':40960',
-        gatekeeper: 'Gatekeeper',
-        gatekeeperSub: 'Hono + SQLite · :58780',
-        sse: 'SSE（EventSource /api/events）',
-      },
-);
+const common = {
+  browser: 'Browser',
+  frontend: 'Frontend',
+  frontendSub: 'React PWA · :51730',
+  agentCore: 'Agent Core',
+  agentCoreSub: 'BFF · :30010',
+  opencode: 'OpenCode Server',
+  opencodeSub: ':40960',
+  gatekeeper: 'Gatekeeper',
+  gatekeeperSub: 'Hono + SQLite · :58780',
+};
+
+const sseLabel: Record<'ja' | 'en', string> = {
+  ja: 'SSE（EventSource /api/events）',
+  en: 'SSE (EventSource /api/events)',
+};
+
+const t = computed(() => ({ ...common, sse: sseLabel[props.variant ?? 'ja'] }));
 </script>
 
 <template>

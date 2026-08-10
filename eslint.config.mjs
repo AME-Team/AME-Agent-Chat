@@ -8,6 +8,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/build/**',
       '.ame-review/**',
+      'packages/docs/.vitepress/cache/**',
       'packages/frontend/src/vite-env.d.ts',
     ],
   },

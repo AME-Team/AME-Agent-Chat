@@ -3,79 +3,66 @@ import { computed } from 'vue';
 
 const props = defineProps<{ variant?: 'ja' | 'en' }>();
 
-const t = computed(() =>
-  props.variant === 'en'
-    ? {
-        hostOs: 'HOST OS',
-        container: 'CONTAINER',
-        browser: 'Browser',
-        frontendTitle: 'Frontend',
-        frontendSub: 'React PWA',
-        frontendPort: '51730',
-        proxyLabel: 'Vite proxy /api → :30010',
-        sseLabel: 'EventSource /api/events (SSE)',
-        gatekeeperTitle: 'Gatekeeper',
-        gatekeeperSub: 'Hono + SQLite',
-        gatekeeperPort: '58780',
-        gatekeeperItems: [
-          'policy classification (classify)',
-          'session / message / settings persistence',
-          'approval audit log · token usage',
-        ],
-        httpLabel: 'HTTP (settings / usage / approvals / search)',
-        hostLinkLabel: 'host.docker.internal:58780 (container) / :58780 (dev)',
-        agentCoreTitle: 'Agent Core',
-        agentCoreSub: 'Hono BFF',
-        agentCorePort: '30010',
-        published: 'published port',
-        agentCoreItems: [
-          'LLM router (regex tier classification)',
-          '@opencode-ai/sdk',
-          'SSE proxy (/api/events)',
-        ],
-        opencodeLabel: 'HTTP (localhost:40960)',
-        opencodeTitle: 'OpenCode Server',
-        opencodeSub: 'opencode serve',
-        opencodePort: '40960',
-        private: 'private',
-        workspaceLabel: 'runs on the workspace (/workspace bind mount)',
-      }
-    : {
-        hostOs: 'HOST OS',
-        container: 'CONTAINER',
-        browser: 'Browser',
-        frontendTitle: 'Frontend',
-        frontendSub: 'React PWA',
-        frontendPort: '51730',
-        proxyLabel: 'Vite proxy /api → :30010',
-        sseLabel: 'EventSource /api/events (SSE)',
-        gatekeeperTitle: 'Gatekeeper',
-        gatekeeperSub: 'Hono + SQLite',
-        gatekeeperPort: '58780',
-        gatekeeperItems: [
-          'ポリシー判定（classify）',
-          'セッション / メッセージ / 設定の永続化',
-          '承認監査ログ・トークン使用量',
-        ],
-        httpLabel: 'HTTP（設定 / 使用量 / 承認 / 検索）',
-        hostLinkLabel: 'host.docker.internal:58780（コンテナ）/ :58780（dev）',
-        agentCoreTitle: 'Agent Core',
-        agentCoreSub: 'Hono BFF',
-        agentCorePort: '30010',
-        published: '公開ポート',
-        agentCoreItems: [
-          'LLM ルーター（regex でティア判定）',
-          '@opencode-ai/sdk',
-          'SSE プロキシ（/api/events）',
-        ],
-        opencodeLabel: 'HTTP（localhost:40960）',
-        opencodeTitle: 'OpenCode Server',
-        opencodeSub: 'opencode serve',
-        opencodePort: '40960',
-        private: '非公開',
-        workspaceLabel: 'ワークスペース（/workspace bind mount）で実行',
-      },
-);
+const common = {
+  hostOs: 'HOST OS',
+  container: 'CONTAINER',
+  browser: 'Browser',
+  frontendTitle: 'Frontend',
+  frontendSub: 'React PWA',
+  frontendPort: '51730',
+  proxyLabel: 'Vite proxy /api → :30010',
+  sseLabel: 'EventSource /api/events (SSE)',
+  gatekeeperTitle: 'Gatekeeper',
+  gatekeeperSub: 'Hono + SQLite',
+  gatekeeperPort: '58780',
+  agentCoreTitle: 'Agent Core',
+  agentCoreSub: 'Hono BFF',
+  agentCorePort: '30010',
+  opencodeTitle: 'OpenCode Server',
+  opencodeSub: 'opencode serve',
+  opencodePort: '40960',
+};
+
+const localized = {
+  ja: {
+    gatekeeperItems: [
+      'ポリシー判定（classify）',
+      'セッション / メッセージ / 設定の永続化',
+      '承認監査ログ・トークン使用量',
+    ],
+    httpLabel: 'HTTP（設定 / 使用量 / 承認 / 検索）',
+    hostLinkLabel: 'host.docker.internal:58780（コンテナ）/ :58780（dev）',
+    published: '公開ポート',
+    agentCoreItems: [
+      'LLM ルーター（regex でティア判定）',
+      '@opencode-ai/sdk',
+      'SSE プロキシ（/api/events）',
+    ],
+    opencodeLabel: 'HTTP（localhost:40960）',
+    private: '非公開',
+    workspaceLabel: 'ワークスペース（/workspace bind mount）で実行',
+  },
+  en: {
+    gatekeeperItems: [
+      'policy classification (classify)',
+      'session / message / settings persistence',
+      'approval audit log · token usage',
+    ],
+    httpLabel: 'HTTP (settings / usage / approvals / search)',
+    hostLinkLabel: 'host.docker.internal:58780 (container) / :58780 (dev)',
+    published: 'published port',
+    agentCoreItems: [
+      'LLM router (regex tier classification)',
+      '@opencode-ai/sdk',
+      'SSE proxy (/api/events)',
+    ],
+    opencodeLabel: 'HTTP (localhost:40960)',
+    private: 'private',
+    workspaceLabel: 'runs on the workspace (/workspace bind mount)',
+  },
+} as const;
+
+const t = computed(() => ({ ...common, ...localized[props.variant ?? 'ja'] }));
 </script>
 
 <template>
@@ -98,13 +85,12 @@ const t = computed(() =>
               <span class="port-badge">:{{ t.frontendPort }}</span>
             </div>
             <span class="node-sub">{{ t.frontendSub }}</span>
+            <ul class="node-items node-items--links">
+              <li>{{ t.proxyLabel }}</li>
+              <li>{{ t.sseLabel }}</li>
+            </ul>
           </div>
         </div>
-
-        <ul class="flow-labels">
-          <li>{{ t.proxyLabel }}</li>
-          <li>{{ t.sseLabel }}</li>
-        </ul>
 
         <div class="conn">
           <span class="conn-line"></span>
@@ -291,16 +277,10 @@ const t = computed(() =>
   font-size: 0.8125rem;
 }
 
-.flow-labels {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 2px;
+.node-items--links {
   font-family: var(--vp-font-family-mono);
   font-size: 0.75rem;
   color: var(--vp-c-text-3);
-  text-align: center;
 }
 
 .h-arrow {
