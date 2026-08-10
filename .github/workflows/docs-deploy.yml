@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Type-check docs
+        run: pnpm --filter @ame-agent-chat/docs typecheck
+
       - name: Build docs
         run: pnpm --filter @ame-agent-chat/docs build
 

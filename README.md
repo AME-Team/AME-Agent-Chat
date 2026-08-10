@@ -65,6 +65,8 @@ pnpm build        # ビルド
 - **公開サイト**: https://tarminjapan.github.io/AME-Agent-Chat/
 - ローカル: `pnpm docs:dev` → http://localhost:51740
 
+> **注意**: 初回のみ、リポジトリ設定（Settings → Pages）で Source を「GitHub Actions」に変更してください。`.github/workflows/docs-deploy.yml` がビルド結果を GitHub Pages にデプロイします。
+
 内容:
 
 - 要件定義: GitHub Issue #1（統合）/ #2（チャット機能）
