@@ -20,15 +20,7 @@ It works on Windows / Linux / macOS. You chat with the agent in your browser whi
 
 The environment is made of four components working behind an OpenCode Server.
 
-```
-Browser ──► Frontend (React PWA, :51730)
-              │
-              ├──► Agent Core (BFF, :30010) ──► OpenCode Server (:40960)
-              │          │
-              │          └──► Gatekeeper (Hono + SQLite, :58780)
-              │
-              └── SSE (EventSource /api/events)
-```
+<SystemLayoutDiagram variant="en" />
 
 - **Frontend**: a React PWA that provides the chat UI
 - **Agent Core (BFF)**: a Hono server bridging the frontend and OpenCode. Handles the LLM router, SSE proxy and approval coordination
