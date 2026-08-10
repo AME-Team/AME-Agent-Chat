@@ -9,12 +9,13 @@ pnpm workspace モノレポ。要件は GitHub Issue #1（統合要件書）/ #2
 
 ## パッケージ構成
 
-| パッケージ                   | パス                  | 役割                                                         |
-| ---------------------------- | --------------------- | ------------------------------------------------------------ |
-| `@ame-agent-chat/shared`     | `packages/shared`     | 共通型定義（Tier/Effort/Session/SSE/Command 等）             |
-| `@ame-agent-chat/agent-core` | `packages/agent-core` | BFF（Hono）・LLM ルーター・OpenCode SDK 接続（ポート 30010） |
-| `@ame-agent-chat/gatekeeper` | `packages/gatekeeper` | ファイル I/O 制御・承認フロー（Hono+SQLite・ポート 58780）   |
-| `@ame-agent-chat/frontend`   | `packages/frontend`   | React PWA（Vite・ポート 51730）                              |
+| パッケージ                   | パス                  | 役割                                                             |
+| ---------------------------- | --------------------- | ---------------------------------------------------------------- |
+| `@ame-agent-chat/shared`     | `packages/shared`     | 共通型定義（Tier/Effort/Session/SSE/Command 等）                 |
+| `@ame-agent-chat/agent-core` | `packages/agent-core` | BFF（Hono）・LLM ルーター・OpenCode SDK 接続（ポート 30010）     |
+| `@ame-agent-chat/gatekeeper` | `packages/gatekeeper` | ファイル I/O 制御・承認フロー（Hono+SQLite・ポート 58780）       |
+| `@ame-agent-chat/frontend`   | `packages/frontend`   | React PWA（Vite・ポート 51730）                                  |
+| `@ame-agent-chat/docs`       | `packages/docs`       | ドキュメントサイト（VitePress・ポート 51740・GitHub Pages 公開） |
 
 ## 主要コマンド
 
@@ -29,6 +30,9 @@ pnpm dev                # opencode serve 自動起動 + 全パッケージ並列
 pnpm build              # 全パッケージビルド
 pnpm start              # ワンコマンド起動（Docker + Gatekeeper + Frontend + ブラウザ）
 pnpm stop               # 停止（コンテナ down + プロセス終了）
+pnpm docs:dev           # ドキュメントサイト dev（http://localhost:51740）
+pnpm docs:build         # ドキュメントサイト ビルド（GitHub Pages 用）
+pnpm docs:preview       # ビルド結果のプレビュー
 pnpm -r --filter <pkg> <script>  # 個別パッケージ実行
 ```
 
@@ -52,7 +56,7 @@ Frontend(51730)/Gatekeeper(58780) はホスト起動。コンテナは Agent Cor
 | ---------------- | --------------------------------------------------------------- |
 | Frontend (PWA)   | 51730                                                           |
 | Agent Core (BFF) | 30010                                                           |
-| OpenCode Server  | 40960（コンテナ内のみ / `pnpm dev` ではホスト自動起動）        |
+| OpenCode Server  | 40960（コンテナ内のみ / `pnpm dev` ではホスト自動起動）         |
 | Gatekeeper API   | 58780（ホスト OS）※要件 §2.6 の 87880 は TCP 上限超過のため修正 |
 
 ## UI 設計

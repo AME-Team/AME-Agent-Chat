@@ -60,6 +60,13 @@ pnpm build        # ビルド
 
 ## ドキュメント
 
+ドキュメントサイト（VitePress・ja/en 対応）は GitHub Pages で公開しています。
+
+- **公開サイト**: https://tarminjapan.github.io/AME-Agent-Chat/
+- ローカル: `pnpm docs:dev` → http://localhost:51740
+
+内容:
+
 - 要件定義: GitHub Issue #1（統合）/ #2（チャット機能）
 - タスク分割: Issue #3〜#27
 - AI エージェント指針: `AGENTS.md`
