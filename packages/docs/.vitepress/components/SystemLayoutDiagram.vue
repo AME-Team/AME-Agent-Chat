@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { PORTS } from './ports';
 
 const props = defineProps<{ variant?: 'ja' | 'en' }>();
 
 const common = {
   browser: 'Browser',
   frontend: 'Frontend',
-  frontendSub: 'React PWA · :51730',
+  frontendSub: `React PWA · :${PORTS.frontend}`,
   agentCore: 'Agent Core',
-  agentCoreSub: 'BFF · :30010',
+  agentCoreSub: `BFF · :${PORTS.agentCore}`,
   opencode: 'OpenCode Server',
-  opencodeSub: ':40960',
+  opencodeSub: `:${PORTS.opencode}`,
   gatekeeper: 'Gatekeeper',
-  gatekeeperSub: 'Hono + SQLite · :58780',
+  gatekeeperSub: `Hono + SQLite · :${PORTS.gatekeeper}`,
 };
 
 const sseLabel: Record<'ja' | 'en', string> = {

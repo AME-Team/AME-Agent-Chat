@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { PORTS } from './ports';
 
 const props = defineProps<{ variant?: 'ja' | 'en' }>();
 
@@ -9,18 +10,14 @@ const common = {
   browser: 'Browser',
   frontendTitle: 'Frontend',
   frontendSub: 'React PWA',
-  frontendPort: '51730',
-  proxyLabel: 'Vite proxy /api → :30010',
+  proxyLabel: `Vite proxy /api → :${PORTS.agentCore}`,
   sseLabel: 'EventSource /api/events (SSE)',
   gatekeeperTitle: 'Gatekeeper',
   gatekeeperSub: 'Hono + SQLite',
-  gatekeeperPort: '58780',
   agentCoreTitle: 'Agent Core',
   agentCoreSub: 'Hono BFF',
-  agentCorePort: '30010',
   opencodeTitle: 'OpenCode Server',
   opencodeSub: 'opencode serve',
-  opencodePort: '40960',
 };
 
 const localized = {
@@ -31,14 +28,14 @@ const localized = {
       '承認監査ログ・トークン使用量',
     ],
     httpLabel: 'HTTP（設定 / 使用量 / 承認 / 検索）',
-    hostLinkLabel: 'host.docker.internal:58780（コンテナ）/ :58780（dev）',
+    hostLinkLabel: `host.docker.internal:${PORTS.gatekeeper}（コンテナ）/ :${PORTS.gatekeeper}（dev）`,
     published: '公開ポート',
     agentCoreItems: [
       'LLM ルーター（regex でティア判定）',
       '@opencode-ai/sdk',
       'SSE プロキシ（/api/events）',
     ],
-    opencodeLabel: 'HTTP（localhost:40960）',
+    opencodeLabel: `HTTP（localhost:${PORTS.opencode}）`,
     private: '非公開',
     workspaceLabel: 'ワークスペース（/workspace bind mount）で実行',
   },
@@ -49,14 +46,14 @@ const localized = {
       'approval audit log · token usage',
     ],
     httpLabel: 'HTTP (settings / usage / approvals / search)',
-    hostLinkLabel: 'host.docker.internal:58780 (container) / :58780 (dev)',
+    hostLinkLabel: `host.docker.internal:${PORTS.gatekeeper} (container) / :${PORTS.gatekeeper} (dev)`,
     published: 'published port',
     agentCoreItems: [
       'LLM router (regex tier classification)',
       '@opencode-ai/sdk',
       'SSE proxy (/api/events)',
     ],
-    opencodeLabel: 'HTTP (localhost:40960)',
+    opencodeLabel: `HTTP (localhost:${PORTS.opencode})`,
     private: 'private',
     workspaceLabel: 'runs on the workspace (/workspace bind mount)',
   },
@@ -82,7 +79,7 @@ const t = computed(() => ({ ...common, ...localized[props.variant ?? 'ja'] }));
           <div class="node node-frontend">
             <div class="node-title-line">
               <span class="node-title">{{ t.frontendTitle }}</span>
-              <span class="port-badge">:{{ t.frontendPort }}</span>
+              <span class="port-badge">:{{ PORTS.frontend }}</span>
             </div>
             <span class="node-sub">{{ t.frontendSub }}</span>
             <ul class="node-items node-items--links">
@@ -102,7 +99,7 @@ const t = computed(() => ({ ...common, ...localized[props.variant ?? 'ja'] }));
         <div class="node node-gatekeeper">
           <div class="node-title-line">
             <span class="node-title">{{ t.gatekeeperTitle }}</span>
-            <span class="port-badge">:{{ t.gatekeeperPort }}</span>
+            <span class="port-badge">:{{ PORTS.gatekeeper }}</span>
           </div>
           <span class="node-sub">{{ t.gatekeeperSub }}</span>
           <ul class="node-items">
@@ -136,7 +133,7 @@ const t = computed(() => ({ ...common, ...localized[props.variant ?? 'ja'] }));
         <div class="node node-agent">
           <div class="node-title-line">
             <span class="node-title">{{ t.agentCoreTitle }}</span>
-            <span class="port-badge">:{{ t.agentCorePort }}</span>
+            <span class="port-badge">:{{ PORTS.agentCore }}</span>
             <span class="tag">{{ t.published }}</span>
           </div>
           <span class="node-sub">{{ t.agentCoreSub }}</span>
@@ -156,7 +153,7 @@ const t = computed(() => ({ ...common, ...localized[props.variant ?? 'ja'] }));
         <div class="node node-opencode">
           <div class="node-title-line">
             <span class="node-title">{{ t.opencodeTitle }}</span>
-            <span class="port-badge">:{{ t.opencodePort }}</span>
+            <span class="port-badge">:{{ PORTS.opencode }}</span>
             <span class="tag">{{ t.private }}</span>
           </div>
           <span class="node-sub">{{ t.opencodeSub }}</span>
