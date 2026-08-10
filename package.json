@@ -17,7 +17,10 @@
     "dev": "node scripts/dev.mjs",
     "build": "pnpm -r build",
     "start": "node scripts/start.mjs",
-    "stop": "node scripts/stop.mjs"
+    "stop": "node scripts/stop.mjs",
+    "docs:dev": "pnpm --filter @ame-agent-chat/docs dev",
+    "docs:build": "pnpm --filter @ame-agent-chat/docs build",
+    "docs:preview": "pnpm --filter @ame-agent-chat/docs preview"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
