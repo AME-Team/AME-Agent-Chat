@@ -1,6 +1,6 @@
 # Architecture Overview
 
-AME Agent Chat is a **pnpm workspace monorepo** made of four packages, with an OpenCode Server running behind them.
+AME Agent Chat is a **pnpm workspace monorepo** made of five packages, with an OpenCode Server running behind them. Four of them (frontend / agent-core / gatekeeper / shared) are runtime packages; `docs` is a documentation-only package that serves this site (VitePress).
 
 ## Overall layout
 
@@ -39,6 +39,7 @@ AME Agent Chat is a **pnpm workspace monorepo** made of four packages, with an O
 | `packages/agent-core` | Hono BFF. OpenCode SDK connection, LLM router, SSE proxy, approval coordination | 30010 |
 | `packages/gatekeeper` | Hono + SQLite. File-I/O policy, persistence, approval audit, usage aggregation  | 58780 |
 | `packages/shared`     | Shared type definitions (Tier / Effort / Session / SSE / Command, etc.)         | —     |
+| `packages/docs`       | Documentation site (VitePress, ja/en, published on GitHub Pages). Not a runtime package | 51740 (dev) |
 
 ## Request flow
 

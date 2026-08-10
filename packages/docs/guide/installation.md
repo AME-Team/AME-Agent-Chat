@@ -45,7 +45,7 @@ cd AME-Agent-Chat
 pnpm install
 ```
 
-モノレポ内の全パッケージ（frontend / agent-core / gatekeeper / shared）の依存関係が一括でインストールされます。
+モノレポ内の全パッケージ（frontend / agent-core / gatekeeper / shared / docs）の依存関係が一括でインストールされます。
 
 ## 起動方法の選択
 

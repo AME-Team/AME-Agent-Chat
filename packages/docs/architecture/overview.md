@@ -1,6 +1,6 @@
 # アーキテクチャ概要
 
-AME Agent Chat は **pnpm workspace モノレポ** で構成された 4 つのパッケージと、バックエンドで動作する OpenCode Server から成ります。
+AME Agent Chat は **pnpm workspace モノレポ** で構成された 5 つのパッケージと、バックエンドで動作する OpenCode Server から成ります。うち 4 つ（frontend / agent-core / gatekeeper / shared）がランタイムで、`docs` は本ドキュメントサイト（VitePress）を提供するドキュメント専用パッケージです。
 
 ## 全体構成
 
@@ -39,6 +39,7 @@ AME Agent Chat は **pnpm workspace モノレポ** で構成された 4 つの�
 | `packages/agent-core` | Hono 製 BFF。OpenCode SDK 接続・LLM ルーター・SSE プロキシ・承認連携   | 30010  |
 | `packages/gatekeeper` | Hono + SQLite。ファイル I/O ポリシー判定・永続化・承認監査・使用量集計 | 58780  |
 | `packages/shared`     | 共通型定義（Tier / Effort / Session / SSE / Command など）             | —      |
+| `packages/docs`       | ドキュメントサイト（VitePress・ja/en・GitHub Pages 公開）。ランタイム対象外 | 51740（dev） |
 
 ## リクエストの流れ
 

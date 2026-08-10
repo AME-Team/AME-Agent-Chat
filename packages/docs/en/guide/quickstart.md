@@ -68,7 +68,7 @@ In this setup, the container hosts Agent Core (30010 · published) and OpenCode 
 
 ## Your first conversation
 
-1. Type a message in the input box at the bottom and press **Enter** to send it.
+1. Type a message in the input box at the bottom of the chat screen and press **Enter** to send it.
 2. The agent analyzes the task and routes it to an appropriate model (tier) automatically.
 3. When operations such as file writes are required, an **approval dialog** appears. Review the details and choose "Approve" or "Reject".
 4. Responses stream to the screen in real time.

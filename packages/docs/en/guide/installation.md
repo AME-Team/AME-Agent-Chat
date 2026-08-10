@@ -44,7 +44,7 @@ cd AME-Agent-Chat
 pnpm install
 ```
 
-All dependencies for the monorepo packages (frontend / agent-core / gatekeeper / shared) are installed at once.
+All dependencies for the monorepo packages (frontend / agent-core / gatekeeper / shared / docs) are installed at once.
 
 ## Choosing how to run
 

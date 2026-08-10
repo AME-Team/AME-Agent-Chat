@@ -9,6 +9,7 @@ name: Deploy Docs to GitHub Pages
     paths:
       - 'packages/docs/**'
       - '.github/workflows/docs-deploy.yml'
+      - 'package.json'
       - 'pnpm-lock.yaml'
   workflow_dispatch:
 
