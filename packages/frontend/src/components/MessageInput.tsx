@@ -92,7 +92,7 @@ export function MessageInput() {
 
   const paletteQuery = text.trim().startsWith('/') && !text.trim().includes(' ') ? text.trim() : '';
   const matches = useMemo(() => matchCommands(paletteQuery), [paletteQuery]);
-  const paletteVisible = matches.length > 0;
+  const paletteVisible = paletteQuery !== '' && matches.length > 0;
 
   useEffect(() => setActive(0), [paletteQuery]);
 
