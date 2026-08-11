@@ -131,6 +131,20 @@ export const api = {
     /** @ファイル参照のあいまい検索 (#2 §3.3) */
     search: (q: string) => request<string[]>(`/api/files?q=${encodeURIComponent(q)}`),
   },
+  cwd: {
+    /** カレントディレクトリ + 選択可能なプロジェクト一覧 (#56) */
+    get: (init?: RequestInit) =>
+      request<{ current: string; projects: string[]; ready: boolean; settingsOk: boolean }>(
+        '/api/cwd',
+        init,
+      ),
+    /** ディレクトリを選択 (#56) */
+    set: (directory: string) =>
+      request<{ current: string }>('/api/cwd', {
+        method: 'POST',
+        body: JSON.stringify({ directory }),
+      }),
+  },
 
   auth: {
     providers: () =>

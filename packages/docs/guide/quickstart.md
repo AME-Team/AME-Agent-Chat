@@ -26,6 +26,15 @@ pnpm dev
 **自動起動した場合のみ**、dev 終了時に自動停止されます。既に `opencode serve` が起動している場合はそれを利用します。
 :::
 
+::: info デバッグログ（Issue #55）
+開発モードでは **デバッグログが自動で有効化** されます。
+
+- OpenCode Server が `--log-level DEBUG` で起動します。
+- 各パッケージ（Agent Core 等）へ `LOG_LEVEL=debug` が伝播され、リクエスト詳細や SDK 呼び出しのログを確認できます。
+
+Agent Core のログは実行ターミナルに、OpenCode Server のログは `$TMPDIR/ame-agent-chat/opencode.log` に出力されます。本番相当のログ量にする場合は、環境変数 `LOG_LEVEL=info` を設定して起動してください。
+:::
+
 ## 方法 B: ワンコマンド起動（Docker）
 
 Agent Core と OpenCode Server を Docker コンテナで同居起動し、Frontend と Gatekeeper はホストで起動する構成です。ブラウザも自動で開きます。

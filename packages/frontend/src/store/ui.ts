@@ -29,6 +29,10 @@ interface UIState {
   approvalHistoryOpen: boolean;
   authOpen: boolean;
   usageOpen: boolean;
+  /** カレントディレクトリ選択ダイアログ (#56) */
+  cwdOpen: boolean;
+  /** サイドバー開閉 (#57) — localStorage 永続化 */
+  sidebarCollapsed: boolean;
   preview: { type: 'markdown' | 'image'; content: string } | null;
   showThinking: boolean;
   showDetails: boolean;
@@ -41,6 +45,8 @@ interface UIState {
   setApprovalHistoryOpen: (open: boolean) => void;
   setAuthOpen: (open: boolean) => void;
   setUsageOpen: (open: boolean) => void;
+  setCwdOpen: (open: boolean) => void;
+  toggleSidebar: () => void;
   setPreview: (p: UIState['preview']) => void;
   toggleThinking: () => void;
   toggleDetails: () => void;
@@ -48,13 +54,15 @@ interface UIState {
   removePermission: (id: string) => void;
 }
 
-export const useUI = create<UIState>((set) => ({
+export const useUI = create<UIState>((set, get) => ({
   toasts: [],
   helpOpen: false,
   settingsOpen: false,
   approvalHistoryOpen: false,
   authOpen: false,
   usageOpen: false,
+  cwdOpen: false,
+  sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true',
   preview: null,
   showThinking: true,
   showDetails: false,
@@ -72,6 +80,13 @@ export const useUI = create<UIState>((set) => ({
   setApprovalHistoryOpen: (open) => set({ approvalHistoryOpen: open }),
   setAuthOpen: (open) => set({ authOpen: open }),
   setUsageOpen: (open) => set({ usageOpen: open }),
+  setCwdOpen: (open) => set({ cwdOpen: open }),
+  toggleSidebar: () => {
+    // updater 内で副作用を起こさない (StrictMode 二重実行対策)
+    const next = !get().sidebarCollapsed;
+    localStorage.setItem('sidebarCollapsed', String(next));
+    set({ sidebarCollapsed: next });
+  },
   setPreview: (preview) => set({ preview }),
   toggleThinking: () => set((st) => ({ showThinking: !st.showThinking })),
   toggleDetails: () => set((st) => ({ showDetails: !st.showDetails })),

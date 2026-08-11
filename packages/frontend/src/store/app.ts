@@ -50,6 +50,15 @@ interface AppState {
   reachable: boolean;
   busy: boolean;
 
+  // cwd (#56): カレントディレクトリ (agent-core 側で保持・永続化)
+  currentDirectory: string;
+  /** 起動時のカレントディレクトリ復元が未完了か */
+  cwdLoading: boolean;
+  /** ユーザーによるディレクトリ切替の回数 (Sidebar 再マウント用) */
+  cwdSwitchCount: number;
+  loadCurrentDirectory: () => Promise<void>;
+  setCurrentDirectory: (directory: string) => Promise<void>;
+
   // sessions
   sessions: AppSession[];
   currentId: string | null;
@@ -114,6 +123,23 @@ const knownUserIds = new Set<string>();
 /** 直前に自前で作成したセッション ID (タイトル自動生成の初回送信判定用) */
 let lastCreatedId: string | null = null;
 
+/** loadSessions の連番 (遅延到着した古い応答が新しい再読込結果を上書きしないための競合対策) */
+let sessionsSeq = 0;
+
+/** loadCurrentDirectory の進行中 Promise (StrictMode 二重マウント等の再入を防止) */
+let loadCwdPromise: Promise<void> | null = null;
+
+/** loadCurrentDirectory の世代番号 (背景ポーリングを新規呼び出しで無効化するためのガード) */
+let cwdLoadGeneration = 0;
+
+/** 指定 ms 後に abort する signal を返す。AbortSignal.timeout 非対応 (旧 Safari/WebView) は手動フォールバック */
+function timeoutSignal(ms: number): AbortSignal {
+  if (typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+}
+
 export const useApp = create<AppState>((set, get) => ({
   theme: (localStorage.getItem('theme') as Theme) ?? 'system',
   accent: (localStorage.getItem('accent') as AccentColor) ?? 'trust-blue',
@@ -133,6 +159,118 @@ export const useApp = create<AppState>((set, get) => ({
 
   reachable: false,
   busy: false,
+  currentDirectory: '',
+  cwdLoading: true,
+  cwdSwitchCount: 0,
+
+  loadCurrentDirectory: () => {
+    // 再入防止: 進行中の呼び出しがあれば同一 Promise を返す (StrictMode 二重マウント対策)
+    if (loadCwdPromise) return loadCwdPromise;
+    const gen = ++cwdLoadGeneration;
+    loadCwdPromise = (async () => {
+      // 再実行時も読み込み中表示を出す (初回以外の経路でも一方向にならないように)
+      set({ cwdLoading: true });
+      // 起動時の復元は opencode SDK 呼び出し (projects) も含むため予算を多めに取り、
+      // 有効なディレクトリ (ready) が得られない場合は再試行する (#56)。
+      // サーバ契約: ready=false かつ settingsOk=false は「設定未読 = 一時失敗 (再試行余地あり)」、
+      // settingsOk=true は「恒久的な未設定」を表す
+      let transient = false;
+      let ready = false;
+      try {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const seq = get().cwdSwitchCount;
+          try {
+            const res = await api.cwd.get({ signal: timeoutSignal(8000) });
+            // 試行中にユーザーがディレクトリ切替を完了していた場合は古い応答で上書きしない
+            if (seq !== get().cwdSwitchCount) break;
+            set({ currentDirectory: res.current });
+            if (res.ready) {
+              ready = true;
+              break;
+            }
+            // 恒久的な未設定 (設定は読めた) なら再試行不要。一時失敗 (settingsOk=false) のみ再試行
+            if (res.settingsOk) break;
+            transient = true;
+          } catch {
+            transient = true;
+          }
+          // サーバ側の復元再試行抑制 (2 秒) を超える間隔でリトライし、
+          // 各試行が実際にサーバ側の復元 fetch を起こせるようにする (#56)
+          if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 2500));
+        }
+      } finally {
+        // 復元ループ完了 (例外/中断時も含む) で読み込み中表示を確実に解除
+        set({ cwdLoading: false });
+      }
+      // 復元が初回に失敗しリトライで復元できた場合のみ、並行実行で既定ディレクトリのまま
+      // 読み込み済みのセッション一覧を復元後ディレクトリ分へ再読込する (#56)。
+      // 初回から ready だった場合は並行 loadSessions も復元後ディレクトリに紐づくため再読込しない
+      if (ready && transient) {
+        await get().loadSessions();
+        return;
+      }
+      // 全試行が一時失敗した場合、Gatekeeper の復旧後にバックグラウンドで再確認し、
+      // 復元できた時点でセッション一覧を補正する (#56)
+      if (!ready && transient) {
+        // 背景復元ポーリング中は「読み込み中」表示を継続する (未確定のまま未選択としない)
+        set({ cwdLoading: true });
+        const startCount = get().cwdSwitchCount;
+        let checks = 0;
+        const finish = (): void => {
+          // 新規呼び出し (世代が進んだ) 場合はこのポーリングの状態変更を無効化する
+          if (gen === cwdLoadGeneration) set({ cwdLoading: false });
+        };
+        const check = async (): Promise<void> => {
+          if (gen !== cwdLoadGeneration) return;
+          if (checks >= 3 || startCount !== get().cwdSwitchCount) {
+            finish();
+            return;
+          }
+          checks++;
+          let res: { ready: boolean; current: string; settingsOk: boolean } | undefined;
+          try {
+            res = await api.cwd.get({ signal: timeoutSignal(8000) });
+          } catch {
+            /* 未復旧のため次回チェックへ */
+            setTimeout(() => void check(), 5000);
+            return;
+          }
+          // 恒久的な未設定 (設定は読めた) が判明したら再確認を打ち切る
+          if (res.settingsOk) {
+            finish();
+            return;
+          }
+          if (!res.ready || !res.current) {
+            setTimeout(() => void check(), 5000);
+            return;
+          }
+          if (gen !== cwdLoadGeneration) return;
+          set({ currentDirectory: res.current });
+          finish();
+          // セッション再読込の失敗は再確認のトリガーにしない (loadSessions 内部で catch 済み)
+          await get().loadSessions();
+        };
+        setTimeout(() => void check(), 5000);
+      }
+    })().finally(() => {
+      loadCwdPromise = null;
+    });
+    return loadCwdPromise;
+  },
+
+  setCurrentDirectory: async (directory) => {
+    await api.cwd.set(directory);
+    // ディレクトリ切替時はセッション一覧を新ディレクトリ分へ再読込する (#56)。
+    // Sidebar はマウント時に fetch せず本 store を参照するため、リマウントと合わせても二重取得は発生しない
+    set((st) => ({
+      currentDirectory: directory,
+      currentId: null,
+      messages: [],
+      tools: [],
+      cwdSwitchCount: st.cwdSwitchCount + 1,
+    }));
+    await get().loadSessions();
+  },
 
   sessions: [],
   currentId: null,
@@ -140,11 +278,12 @@ export const useApp = create<AppState>((set, get) => ({
   sortOrder: (localStorage.getItem('sortOrder') as SessionSortOrder) ?? 'updated',
 
   loadSessions: async () => {
+    const seq = ++sessionsSeq;
     try {
       const sessions = await api.sessions.list();
-      set({ sessions, reachable: true });
+      if (seq === sessionsSeq) set({ sessions, reachable: true });
     } catch {
-      set({ reachable: false });
+      if (seq === sessionsSeq) set({ reachable: false });
     }
   },
 

@@ -15,6 +15,7 @@ import { ApprovalHistoryDialog } from './components/ApprovalHistoryDialog';
 import { AuthDialog } from './components/AuthDialog';
 import { UsageDialog } from './components/UsageDialog';
 import { PreviewDialog } from './components/PreviewDialog';
+import { DirectoryDialog } from './components/DirectoryDialog';
 import { useApp } from './store/app';
 import { useUI } from './store/ui';
 import { connectEvents, disconnectEvents } from './lib/sse';
@@ -23,13 +24,21 @@ import { requestNotifyPermission } from './lib/notify';
 export function App() {
   const loadSessions = useApp((s) => s.loadSessions);
   const createSession = useApp((s) => s.createSession);
+  const loadCurrentDirectory = useApp((s) => s.loadCurrentDirectory);
+  const cwdSwitchCount = useApp((s) => s.cwdSwitchCount);
+  const sidebarCollapsed = useUI((s) => s.sidebarCollapsed);
 
   useEffect(() => {
+    // 復元とセッション読込は並行実行する。server 側ミドルウェアが復元を試み、
+    // 復元成功時はセッション一覧が復元後ディレクトリに紐づく (#56)。復元失敗時は
+    // 既定ディレクトリのセッションで続行し、復元が遅れて成功した場合は store 側で
+    // loadSessions() を再読込して補正する
+    void loadCurrentDirectory();
     void loadSessions();
     connectEvents();
     requestNotifyPermission();
     return () => disconnectEvents();
-  }, [loadSessions]);
+  }, [loadSessions, loadCurrentDirectory]);
 
   // キーボードショートカット (要件 #2 §9.1, §9.4)
   useEffect(() => {
@@ -52,7 +61,9 @@ export function App() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
-      <Sidebar />
+      {/* 起動時は key を変えず (復元で再マウントしない)、ユーザー切替時のみ
+          カウンタ変化で Sidebar を再マウントして検索結果等をリセット */}
+      <Sidebar key={cwdSwitchCount} collapsed={sidebarCollapsed} />
       <div className="flex flex-1 flex-col">
         <Header />
         <ChatView />
@@ -65,6 +76,7 @@ export function App() {
       <ApprovalHistoryDialog />
       <AuthDialog />
       <UsageDialog />
+      <DirectoryDialog />
       <PreviewDialog />
     </div>
   );

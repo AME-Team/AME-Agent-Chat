@@ -24,6 +24,13 @@ The APIs used by the frontend. All of them go through Agent Core (BFF); from the
 | GET    | `/api/search?q=`            | Full-text search (relayed to Gatekeeper) |
 | POST   | `/api/import`               | Import a session from JSON               |
 
+## Current directory (Issue #56)
+
+| Method | Path       | Description                                                                           |
+| ------ | ---------- | ------------------------------------------------------------------------------------- |
+| GET    | `/api/cwd` | Current directory and selectable projects (`current` / `projects`)                    |
+| POST   | `/api/cwd` | Select current directory with `{ "directory": "/path" }` and persist it to Gatekeeper |
+
 ## Messages
 
 | Method | Path                          | Description                                           |
