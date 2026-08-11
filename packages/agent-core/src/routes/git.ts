@@ -5,6 +5,7 @@
  */
 import type { Hono } from 'hono';
 import { callOpencode, getOpencodeClient } from '../opencode.js';
+import { withDirectory } from '../cwd.js';
 
 export function registerGitRoutes(app: Hono): void {
   const api = getOpencodeClient();
@@ -12,7 +13,7 @@ export function registerGitRoutes(app: Hono): void {
   // ファイル変更差分 (Git diff) — 要件 #2 §8
   app.get('/api/sessions/:id/diff', async (c) => {
     const { data, error, unreachable } = await callOpencode(() =>
-      api.session.diff({ path: { id: c.req.param('id') } }),
+      api.session.diff({ path: { id: c.req.param('id') }, query: withDirectory() }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json(data);
@@ -26,6 +27,7 @@ export function registerGitRoutes(app: Hono): void {
       api.session.revert({
         path: { id: c.req.param('id') },
         body: { messageID: body.messageID },
+        query: withDirectory(),
       }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
@@ -35,7 +37,7 @@ export function registerGitRoutes(app: Hono): void {
   // /redo: revert 後のやり直し (unrevert) — 要件 #2 §5
   app.post('/api/sessions/:id/unrevert', async (c) => {
     const { data, error, unreachable } = await callOpencode(() =>
-      api.session.unrevert({ path: { id: c.req.param('id') } }),
+      api.session.unrevert({ path: { id: c.req.param('id') }, query: withDirectory() }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json(data);

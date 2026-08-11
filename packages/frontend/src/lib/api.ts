@@ -132,6 +132,17 @@ export const api = {
     search: (q: string) => request<string[]>(`/api/files?q=${encodeURIComponent(q)}`),
   },
 
+  cwd: {
+    /** カレントディレクトリ + 選択可能なプロジェクト一覧 (#56) */
+    get: () => request<{ current: string; projects: string[] }>('/api/cwd'),
+    /** ディレクトリを選択 (#56) */
+    set: (directory: string) =>
+      request<{ current: string }>('/api/cwd', {
+        method: 'POST',
+        body: JSON.stringify({ directory }),
+      }),
+  },
+
   auth: {
     providers: () =>
       request<{ providers: unknown[]; authMethods: Record<string, unknown[]> }>(

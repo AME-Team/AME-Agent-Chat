@@ -5,6 +5,7 @@
  */
 import { createOpencodeClient, type OpencodeClient } from '@opencode-ai/sdk';
 import { env } from './env.js';
+import { log } from './logger.js';
 
 let client: OpencodeClient | null = null;
 
@@ -54,9 +55,12 @@ export async function callOpencode<T>(
   fn: () => Promise<{ data?: T; error?: unknown }>,
 ): Promise<OpencodeResult<T>> {
   try {
-    return await fn();
+    const result = await fn();
+    log.debug('opencode sdk ok');
+    return result;
   } catch (cause) {
     const reason = connectionErrorReason(cause);
+    log.debug('opencode sdk error', String(cause));
     if (!reason) throw cause;
     return {
       error: { message: 'opencode server unreachable', cause: String(cause) },

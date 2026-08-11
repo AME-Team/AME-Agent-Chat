@@ -48,13 +48,18 @@ async function startOpencode() {
   }
   console.log('[dev] OpenCode Server を起動 (http://localhost:40960)...');
   const out = openSync(opencodeLogFile, 'a');
-  const child = spawn('opencode', ['serve', '--port', '40960', '--hostname', '127.0.0.1'], {
-    cwd: Root,
-    env: process.env,
-    shell: true,
-    detached: true,
-    stdio: ['ignore', out, out],
-  });
+  // 開発モード (#55): デバッグログ (DEBUG) と stderr へのログ出力を有効化する
+  const child = spawn(
+    'opencode',
+    ['serve', '--port', '40960', '--hostname', '127.0.0.1', '--log-level', 'DEBUG', '--print-logs'],
+    {
+      cwd: Root,
+      env: process.env,
+      shell: true,
+      detached: true,
+      stdio: ['ignore', out, out],
+    },
+  );
   opencodeChild = child;
   child.unref();
   writeFileSync(opencodePidFile, JSON.stringify({ opencode: child.pid }, null, 2));
@@ -123,12 +128,17 @@ function main() {
       console.log('[dev] 全パッケージを並列起動...');
       // docs は VitePress のドキュメントサイト専用パッケージのためランタイム起動から除外
       // （`pnpm docs:dev` で個別起動する）。
-      const dev = spawn('pnpm', ['-r', '--filter', '!@ame-agent-chat/docs', '--parallel', 'run', 'dev'], {
-        cwd: Root,
-        env: process.env,
-        shell: true,
-        stdio: 'inherit',
-      });
+      // 開発モード (#55): 配下のパッケージへ LOG_LEVEL=debug を伝播する
+      const dev = spawn(
+        'pnpm',
+        ['-r', '--filter', '!@ame-agent-chat/docs', '--parallel', 'run', 'dev'],
+        {
+          cwd: Root,
+          env: { ...process.env, LOG_LEVEL: 'debug' },
+          shell: true,
+          stdio: 'inherit',
+        },
+      );
       dev.on('error', (err) => {
         console.error(`[dev] エラー: pnpm dev を起動できませんでした (${err.message})`);
         exit(1);

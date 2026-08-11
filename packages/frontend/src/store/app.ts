@@ -50,6 +50,11 @@ interface AppState {
   reachable: boolean;
   busy: boolean;
 
+  // cwd (#56): カレントディレクトリ (agent-core 側で保持・永続化)
+  currentDirectory: string;
+  loadCurrentDirectory: () => Promise<void>;
+  setCurrentDirectory: (directory: string) => Promise<void>;
+
   // sessions
   sessions: AppSession[];
   currentId: string | null;
@@ -133,6 +138,22 @@ export const useApp = create<AppState>((set, get) => ({
 
   reachable: false,
   busy: false,
+  currentDirectory: '',
+
+  loadCurrentDirectory: async () => {
+    try {
+      const { current } = await api.cwd.get();
+      set({ currentDirectory: current });
+    } catch {
+      /* 未接続時は空のまま */
+    }
+  },
+
+  setCurrentDirectory: async (directory) => {
+    await api.cwd.set(directory);
+    set({ currentDirectory: directory, currentId: null, messages: [], tools: [] });
+    await get().loadSessions();
+  },
 
   sessions: [],
   currentId: null,

@@ -25,7 +25,7 @@ const SORT_OPTIONS: SessionSortOrder[] = ['updated', 'created', 'name'];
 /** 全文検索の連番 (古い応答を破棄するための競合対策) */
 let searchSeq = 0;
 
-export function Sidebar() {
+export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
   const { t } = useI18n();
   const sessions = useApp((s) => s.sessions);
   const currentId = useApp((s) => s.currentId);
@@ -180,7 +180,8 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col gap-4 p-4">
+    // collapsed 時はアンマウントせず非表示にする (ローカル状態を保持 #57)
+    <aside className={cn('flex w-72 shrink-0 flex-col gap-4 p-4', collapsed && 'hidden')}>
       <button
         type="button"
         onClick={() => void createSession().catch(() => {})}

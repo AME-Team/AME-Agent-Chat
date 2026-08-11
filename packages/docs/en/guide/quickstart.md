@@ -25,6 +25,15 @@ Open **http://localhost:51730** in your browser and start a conversation with "N
 `pnpm dev` only starts the OpenCode Server (40960) if it is not already running. It is **only stopped automatically when it was auto-started**. If `opencode serve` is already running, it is reused.
 :::
 
+::: info Debug logs (Issue #55)
+Development mode **enables debug logs automatically**.
+
+- The OpenCode Server starts with `--log-level DEBUG`.
+- `LOG_LEVEL=debug` is propagated to each package (Agent Core, etc.), so you can inspect request details and SDK call logs.
+
+Agent Core logs go to the terminal; OpenCode Server logs go to `$TMPDIR/ame-agent-chat/opencode.log`. To use production-like log volume, start with `LOG_LEVEL=info`.
+:::
+
 ## Method B: One-command start (Docker)
 
 Runs Agent Core and OpenCode Server together in a Docker container, with Frontend and Gatekeeper on the host. The browser opens automatically.

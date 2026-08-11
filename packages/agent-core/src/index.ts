@@ -6,14 +6,17 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './server.js';
 import { env } from './env.js';
+import { log } from './logger.js';
 import { pingOpencode } from './opencode.js';
+import { initCurrentDirectory } from './cwd.js';
 
 const app = createApp();
 
 serve({ fetch: app.fetch, port: env.port, hostname: env.host }, async (info) => {
+  await initCurrentDirectory();
   const opencode = await pingOpencode();
-  console.log(`[agent-core] listening on http://${env.host}:${info.port}`);
-  console.log(
-    `[agent-core] OpenCode Server (${env.opencodeBaseUrl}): ${opencode ? 'reachable' : 'unreachable — `opencode serve` を起動してください'}`,
+  log.info(`listening on http://${env.host}:${info.port} (log level: ${env.logLevel})`);
+  log.info(
+    `OpenCode Server (${env.opencodeBaseUrl}): ${opencode ? 'reachable' : 'unreachable — \`opencode serve\` を起動してください'}`,
   );
 });

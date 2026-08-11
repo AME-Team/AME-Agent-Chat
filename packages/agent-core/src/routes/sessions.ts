@@ -11,12 +11,15 @@
 import type { Hono } from 'hono';
 import { callOpencode, getOpencodeClient } from '../opencode.js';
 import { env } from '../env.js';
+import { withDirectory } from '../cwd.js';
 
 export function registerSessionRoutes(app: Hono): void {
   const api = getOpencodeClient();
 
   app.get('/api/sessions', async (c) => {
-    const { data, error, unreachable } = await callOpencode(() => api.session.list());
+    const { data, error, unreachable } = await callOpencode(() =>
+      api.session.list({ query: withDirectory() }),
+    );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json(data);
   });
@@ -26,6 +29,7 @@ export function registerSessionRoutes(app: Hono): void {
     const { data, error, unreachable } = await callOpencode(() =>
       api.session.create({
         body: { title: typeof body.title === 'string' ? body.title : undefined },
+        query: withDirectory(),
       }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
@@ -35,7 +39,7 @@ export function registerSessionRoutes(app: Hono): void {
   app.get('/api/sessions/:id', async (c) => {
     const id = c.req.param('id');
     const { data, error, unreachable } = await callOpencode(() =>
-      api.session.get({ path: { id } }),
+      api.session.get({ path: { id }, query: withDirectory() }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 404);
     return c.json(data);
@@ -48,6 +52,7 @@ export function registerSessionRoutes(app: Hono): void {
       api.session.update({
         path: { id },
         body: { title: typeof body.title === 'string' ? body.title : undefined },
+        query: withDirectory(),
       }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
@@ -56,7 +61,9 @@ export function registerSessionRoutes(app: Hono): void {
 
   app.delete('/api/sessions/:id', async (c) => {
     const id = c.req.param('id');
-    const { error, unreachable } = await callOpencode(() => api.session.delete({ path: { id } }));
+    const { error, unreachable } = await callOpencode(() =>
+      api.session.delete({ path: { id }, query: withDirectory() }),
+    );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json({ ok: true });
   });
@@ -69,6 +76,7 @@ export function registerSessionRoutes(app: Hono): void {
       api.session.fork({
         path: { id },
         body: { messageID: typeof body.messageID === 'string' ? body.messageID : undefined },
+        query: withDirectory(),
       }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
@@ -78,7 +86,7 @@ export function registerSessionRoutes(app: Hono): void {
   // セッション共有 / 共有解除 (#2 §6 /share /unshare)
   app.post('/api/sessions/:id/share', async (c) => {
     const { data, error, unreachable } = await callOpencode(() =>
-      api.session.share({ path: { id: c.req.param('id') } }),
+      api.session.share({ path: { id: c.req.param('id') }, query: withDirectory() }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json(data);
@@ -86,7 +94,7 @@ export function registerSessionRoutes(app: Hono): void {
 
   app.post('/api/sessions/:id/unshare', async (c) => {
     const { data, error, unreachable } = await callOpencode(() =>
-      api.session.unshare({ path: { id: c.req.param('id') } }),
+      api.session.unshare({ path: { id: c.req.param('id') }, query: withDirectory() }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json(data);

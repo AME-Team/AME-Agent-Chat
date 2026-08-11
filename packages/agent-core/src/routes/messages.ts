@@ -13,6 +13,7 @@ import type { Hono } from 'hono';
 import { lookup } from 'node:dns/promises';
 import { callOpencode, getOpencodeClient } from '../opencode.js';
 import { env } from '../env.js';
+import { withDirectory } from '../cwd.js';
 import { resolveTaskModel, shouldCompact } from '../router.js';
 
 interface PromptRequestBody {
@@ -42,7 +43,9 @@ async function augmentFileRefs(text: string): Promise<string> {
       .catch(() => ({ action: undefined }));
     if (policy.action === 'allow') {
       try {
-        const res = await getOpencodeClient().file.read({ query: { path: p } });
+        const res = await getOpencodeClient().file.read({
+          query: { path: p, ...withDirectory() },
+        });
         const content = (res.data as { content?: string } | undefined)?.content;
         if (content) parts.push(`\n\n【ファイル: ${p}】\n${content}`);
       } catch {
@@ -60,7 +63,7 @@ export function registerMessageRoutes(app: Hono): void {
     const id = c.req.param('id');
     const limit = Number(c.req.query('limit') ?? 0) || undefined;
     const { data, error, unreachable } = await callOpencode(() =>
-      api.session.messages({ path: { id }, query: { limit } }),
+      api.session.messages({ path: { id }, query: { limit, ...withDirectory() } }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json(data);
@@ -80,6 +83,7 @@ export function registerMessageRoutes(app: Hono): void {
         api.session.shell({
           path: { id },
           body: { agent: body.agent ?? 'build', command },
+          query: withDirectory(),
         }),
       );
       if (shell.error) return c.json({ error: shell.error }, shell.unreachable ? 503 : 500);
@@ -121,6 +125,7 @@ export function registerMessageRoutes(app: Hono): void {
             (routed ? { providerID: routed.providerID, modelID: routed.modelID } : undefined),
           agent: body.agent,
         },
+        query: withDirectory(),
       }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
@@ -133,7 +138,7 @@ export function registerMessageRoutes(app: Hono): void {
     const q = c.req.query('q') ?? '';
     if (!q) return c.json([]);
     const { data, error, unreachable } = await callOpencode(() =>
-      api.find.files({ query: { query: q, dirs: 'false' } }),
+      api.find.files({ query: { query: q, dirs: 'false', ...withDirectory() } }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
     // SDK は string[] を返すが、防御的に検証して正規化
@@ -174,7 +179,7 @@ export function registerMessageRoutes(app: Hono): void {
   app.post('/api/sessions/:id/abort', async (c) => {
     const id = c.req.param('id');
     const { data, error, unreachable } = await callOpencode(() =>
-      api.session.abort({ path: { id } }),
+      api.session.abort({ path: { id }, query: withDirectory() }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json({ ok: data });
@@ -189,6 +194,7 @@ export function registerMessageRoutes(app: Hono): void {
       api.session.command({
         path: { id },
         body: { command: body.command, arguments: body.arguments ?? '' },
+        query: withDirectory(),
       }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
@@ -198,7 +204,7 @@ export function registerMessageRoutes(app: Hono): void {
   app.post('/api/sessions/:id/summarize', async (c) => {
     const id = c.req.param('id');
     const { data, error, unreachable } = await callOpencode(() =>
-      api.session.summarize({ path: { id } }),
+      api.session.summarize({ path: { id }, query: withDirectory() }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json(data);
@@ -207,7 +213,7 @@ export function registerMessageRoutes(app: Hono): void {
   app.post('/api/sessions/:id/init', async (c) => {
     const id = c.req.param('id');
     const { data, error, unreachable } = await callOpencode(() =>
-      api.session.init({ path: { id } }),
+      api.session.init({ path: { id }, query: withDirectory() }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
     return c.json(data);

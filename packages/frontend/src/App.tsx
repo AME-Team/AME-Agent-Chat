@@ -15,6 +15,7 @@ import { ApprovalHistoryDialog } from './components/ApprovalHistoryDialog';
 import { AuthDialog } from './components/AuthDialog';
 import { UsageDialog } from './components/UsageDialog';
 import { PreviewDialog } from './components/PreviewDialog';
+import { DirectoryDialog } from './components/DirectoryDialog';
 import { useApp } from './store/app';
 import { useUI } from './store/ui';
 import { connectEvents, disconnectEvents } from './lib/sse';
@@ -23,13 +24,16 @@ import { requestNotifyPermission } from './lib/notify';
 export function App() {
   const loadSessions = useApp((s) => s.loadSessions);
   const createSession = useApp((s) => s.createSession);
+  const loadCurrentDirectory = useApp((s) => s.loadCurrentDirectory);
+  const sidebarCollapsed = useUI((s) => s.sidebarCollapsed);
 
   useEffect(() => {
     void loadSessions();
+    void loadCurrentDirectory();
     connectEvents();
     requestNotifyPermission();
     return () => disconnectEvents();
-  }, [loadSessions]);
+  }, [loadSessions, loadCurrentDirectory]);
 
   // キーボードショートカット (要件 #2 §9.1, §9.4)
   useEffect(() => {
@@ -52,7 +56,7 @@ export function App() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
-      <Sidebar />
+      <Sidebar collapsed={sidebarCollapsed} />
       <div className="flex flex-1 flex-col">
         <Header />
         <ChatView />
@@ -65,6 +69,7 @@ export function App() {
       <ApprovalHistoryDialog />
       <AuthDialog />
       <UsageDialog />
+      <DirectoryDialog />
       <PreviewDialog />
     </div>
   );

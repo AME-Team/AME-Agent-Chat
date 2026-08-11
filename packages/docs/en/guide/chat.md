@@ -91,6 +91,19 @@ Responses longer than 1500 characters are collapsed automatically. Toggle them w
 - The view auto-scrolls to the bottom as new messages arrive.
 - Scrolling back up pauses auto-follow, and a floating **jump to latest** button appears at the bottom right.
 
+## Collapsible sidebar (Issue #57)
+
+Click the **panel icon** at the far left of the header to show/hide the session sidebar. When collapsed, the chat area uses the full width. The collapsed state is saved in the browser and persists across restarts.
+
+## Current directory selection (Issue #56)
+
+Click the **folder icon** (or the current directory label) in the header to open the current-directory dialog.
+
+- **Projects**: choose from the workspaces OpenCode knows about.
+- **Custom path**: type a path directly into the text box and press "Select".
+
+The selected directory is saved to Gatekeeper and restored on the next launch. Switching reloads the session list scoped to that directory.
+
 ## Keyboard shortcuts
 
 | Shortcut         | Action                                                   |
