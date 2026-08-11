@@ -5,12 +5,18 @@
  *  - POST /api/cwd  ディレクトリを選択 (Gatekeeper へ永続化)
  */
 import type { Hono } from 'hono';
-import { applyCurrentDirectory, listProjects, resolveCurrentDirectory } from '../cwd.js';
+import {
+  applyCurrentDirectory,
+  isDirectoryReady,
+  listProjects,
+  resolveCurrentDirectory,
+  settingsOk,
+} from '../cwd.js';
 
 export function registerCwdRoutes(app: Hono): void {
   app.get('/api/cwd', async (c) => {
     const [current, projects] = await Promise.all([resolveCurrentDirectory(), listProjects()]);
-    return c.json({ current, projects });
+    return c.json({ current, projects, ready: isDirectoryReady(), settingsOk: settingsOk() });
   });
 
   app.post('/api/cwd', async (c) => {

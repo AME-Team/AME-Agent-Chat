@@ -121,6 +121,9 @@ const knownUserIds = new Set<string>();
 /** 直前に自前で作成したセッション ID (タイトル自動生成の初回送信判定用) */
 let lastCreatedId: string | null = null;
 
+/** loadSessions の連番 (遅延到着した古い応答が新しい再読込結果を上書きしないための競合対策) */
+let sessionsSeq = 0;
+
 export const useApp = create<AppState>((set, get) => ({
   theme: (localStorage.getItem('theme') as Theme) ?? 'system',
   accent: (localStorage.getItem('accent') as AccentColor) ?? 'trust-blue',
@@ -145,17 +148,37 @@ export const useApp = create<AppState>((set, get) => ({
 
   loadCurrentDirectory: async () => {
     // 起動時の復元は opencode SDK 呼び出し (projects) も含むため予算を多めに取り、
-    // 失敗時は短いバックオフで再試行して復元の取りこぼしを防ぐ (#56)
+    // 有効なディレクトリ (ready) が得られない場合は再試行する (#56)。
+    // ただし settingsOk (設定取得成功 = 恒久的な未設定) の場合は再試行しない
+    let failedOnce = false;
+    let ready = false;
     for (let attempt = 0; attempt < 3; attempt++) {
+      const seq = get().cwdSwitchCount;
       try {
-        const { current } = await api.cwd.get({ signal: AbortSignal.timeout(8000) });
-        set({ currentDirectory: current });
-        return;
+        const res = await api.cwd.get({ signal: AbortSignal.timeout(8000) });
+        // 試行中にユーザーがディレクトリ切替を完了していた場合は古い応答で上書きしない
+        if (seq !== get().cwdSwitchCount) break;
+        set({ currentDirectory: res.current });
+        if (res.ready) {
+          ready = true;
+          break;
+        }
+        // 恒久的な未設定 (設定は読めた) なら再試行不要。一時失敗のみ再試行
+        if (res.settingsOk) break;
+        failedOnce = true;
       } catch {
-        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500));
+        failedOnce = true;
       }
+      // サーバ側の復元再試行抑制 (2 秒) を超える間隔でリトライし、
+      // 各試行が実際にサーバ側の復元 fetch を起こせるようにする (#56)
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 2500));
     }
-    /* 未接続時は空のまま */
+    // 復元が初回に失敗しリトライで復元できた場合のみ、並行実行で既定ディレクトリのまま
+    // 読み込み済みのセッション一覧を復元後ディレクトリ分へ再読込する (#56)。
+    // 初回から ready だった場合は並行 loadSessions も復元後ディレクトリに紐づくため再読込しない
+    if (ready && failedOnce) {
+      await get().loadSessions();
+    }
   },
 
   setCurrentDirectory: async (directory) => {
@@ -178,11 +201,12 @@ export const useApp = create<AppState>((set, get) => ({
   sortOrder: (localStorage.getItem('sortOrder') as SessionSortOrder) ?? 'updated',
 
   loadSessions: async () => {
+    const seq = ++sessionsSeq;
     try {
       const sessions = await api.sessions.list();
-      set({ sessions, reachable: true });
+      if (seq === sessionsSeq) set({ sessions, reachable: true });
     } catch {
-      set({ reachable: false });
+      if (seq === sessionsSeq) set({ reachable: false });
     }
   },
 

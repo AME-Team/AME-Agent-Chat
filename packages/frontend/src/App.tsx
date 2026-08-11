@@ -29,9 +29,10 @@ export function App() {
   const sidebarCollapsed = useUI((s) => s.sidebarCollapsed);
 
   useEffect(() => {
-    // 復元とセッション読込は並行実行する。server 側ミドルウェアが復元完了を保証するため、
-    // セッション一覧は常に復元後のディレクトリに紐づく (#56)。復元失敗時は
-    // 意図的に既定ディレクトリのセッションで続行するフォールバック
+    // 復元とセッション読込は並行実行する。server 側ミドルウェアが復元を試み、
+    // 復元成功時はセッション一覧が復元後ディレクトリに紐づく (#56)。復元失敗時は
+    // 既定ディレクトリのセッションで続行し、復元が遅れて成功した場合は store 側で
+    // loadSessions() を再読込して補正する
     void loadCurrentDirectory();
     void loadSessions();
     connectEvents();

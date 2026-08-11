@@ -26,12 +26,24 @@ export function withDirectory(): { directory?: string } {
   return currentDirectory ? { directory: currentDirectory } : {};
 }
 
-/** Gatekeeper の /api/settings から保存済みディレクトリを取得 (未保存/失敗時は undefined) */
+/** 有効なカレントディレクトリが設定されているか (復元 or ユーザー選択済み) */
+export function isDirectoryReady(): boolean {
+  return typeof currentDirectory === 'string' && currentDirectory.length > 0;
+}
+
+/** Gatekeeper の設定取得が一度でも成功したか (恒久的未設定 vs 一時失敗の区別用) */
+export function settingsOk(): boolean {
+  return loaded;
+}
+
+/** Gatekeeper の /api/settings から保存済みディレクトリを取得。
+ *  - 正常に読めて未保存 → undefined
+ *  - 読めなかった (HTTP 4xx/5xx / 通信失敗) → throw (一時失敗として再試行可能) */
 async function fetchSavedDirectory(): Promise<string | undefined> {
   const res = await fetch(`${env.gatekeeperUrl}/api/settings`, {
     signal: AbortSignal.timeout(1500),
   });
-  if (!res.ok) return undefined;
+  if (!res.ok) throw new Error(`settings fetch failed: ${res.status}`);
   const settings = (await res.json()) as Record<string, string>;
   const saved = settings.currentDirectory;
   return saved && typeof saved === 'string' ? saved : undefined;
@@ -58,7 +70,10 @@ export async function ensureCurrentDirectoryLoaded(): Promise<void> {
       loaded = true;
       loadedAt = Date.now();
     } catch {
-      // Gatekeeper 未起動などの一時失敗では loaded を立てず、次回リクエストで再試行する
+      // 読めなかった (初回 or TTL 再取得) → loaded をリセットし次回再試行する。
+      // settingsOk() は「直近の取得成功」を返すよう loaded を最新の成否に合わせる
+      loaded = false;
+      loadedAt = 0;
       log.debug('current directory restore deferred (gatekeeper unavailable)');
     } finally {
       inflight = null;
