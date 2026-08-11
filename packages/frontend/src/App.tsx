@@ -25,11 +25,15 @@ export function App() {
   const loadSessions = useApp((s) => s.loadSessions);
   const createSession = useApp((s) => s.createSession);
   const loadCurrentDirectory = useApp((s) => s.loadCurrentDirectory);
+  const cwdSwitchCount = useApp((s) => s.cwdSwitchCount);
   const sidebarCollapsed = useUI((s) => s.sidebarCollapsed);
 
   useEffect(() => {
-    void loadSessions();
+    // 復元とセッション読込は並行実行する。server 側ミドルウェアが復元完了を保証するため、
+    // セッション一覧は常に復元後のディレクトリに紐づく (#56)。復元失敗時は
+    // 意図的に既定ディレクトリのセッションで続行するフォールバック
     void loadCurrentDirectory();
+    void loadSessions();
     connectEvents();
     requestNotifyPermission();
     return () => disconnectEvents();
@@ -56,7 +60,9 @@ export function App() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
-      <Sidebar collapsed={sidebarCollapsed} />
+      {/* 起動時は key を変えず (復元で再マウントしない)、ユーザー切替時のみ
+          カウンタ変化で Sidebar を再マウントして検索結果等をリセット */}
+      <Sidebar key={cwdSwitchCount} collapsed={sidebarCollapsed} />
       <div className="flex flex-1 flex-col">
         <Header />
         <ChatView />

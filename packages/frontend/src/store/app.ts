@@ -52,6 +52,8 @@ interface AppState {
 
   // cwd (#56): カレントディレクトリ (agent-core 側で保持・永続化)
   currentDirectory: string;
+  /** ユーザーによるディレクトリ切替の回数 (Sidebar 再マウント用) */
+  cwdSwitchCount: number;
   loadCurrentDirectory: () => Promise<void>;
   setCurrentDirectory: (directory: string) => Promise<void>;
 
@@ -139,19 +141,34 @@ export const useApp = create<AppState>((set, get) => ({
   reachable: false,
   busy: false,
   currentDirectory: '',
+  cwdSwitchCount: 0,
 
   loadCurrentDirectory: async () => {
-    try {
-      const { current } = await api.cwd.get();
-      set({ currentDirectory: current });
-    } catch {
-      /* 未接続時は空のまま */
+    // 起動時の復元は opencode SDK 呼び出し (projects) も含むため予算を多めに取り、
+    // 失敗時は短いバックオフで再試行して復元の取りこぼしを防ぐ (#56)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const { current } = await api.cwd.get({ signal: AbortSignal.timeout(8000) });
+        set({ currentDirectory: current });
+        return;
+      } catch {
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500));
+      }
     }
+    /* 未接続時は空のまま */
   },
 
   setCurrentDirectory: async (directory) => {
     await api.cwd.set(directory);
-    set({ currentDirectory: directory, currentId: null, messages: [], tools: [] });
+    // ディレクトリ切替時はセッション一覧を新ディレクトリ分へ再読込する (#56)。
+    // Sidebar はマウント時に fetch せず本 store を参照するため、リマウントと合わせても二重取得は発生しない
+    set((st) => ({
+      currentDirectory: directory,
+      currentId: null,
+      messages: [],
+      tools: [],
+      cwdSwitchCount: st.cwdSwitchCount + 1,
+    }));
     await get().loadSessions();
   },
 

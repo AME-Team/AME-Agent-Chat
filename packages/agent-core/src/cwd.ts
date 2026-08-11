@@ -16,36 +16,55 @@ let loadedAt = 0;
 const RELOAD_TTL_MS = 5 * 60 * 1000;
 /** 復元試行の間隔制御 (Gatekeeper ダウン時でも API が停滞しないように) */
 let lastAttemptAt = 0;
+/** 進行中の復元 fetch (並行呼び出しが同一 Promise を await するための共有) */
+let inflight: Promise<void> | null = null;
+/** ディレクトリ変更 (PUT) の世代。復元 GET の古い応答が新しい PUT を上書きしないためのガード */
+let generation = 0;
 
 /** SDK 呼び出しの query へ directory を注入するヘルパー */
 export function withDirectory(): { directory?: string } {
   return currentDirectory ? { directory: currentDirectory } : {};
 }
 
+/** Gatekeeper の /api/settings から保存済みディレクトリを取得 (未保存/失敗時は undefined) */
+async function fetchSavedDirectory(): Promise<string | undefined> {
+  const res = await fetch(`${env.gatekeeperUrl}/api/settings`, {
+    signal: AbortSignal.timeout(1500),
+  });
+  if (!res.ok) return undefined;
+  const settings = (await res.json()) as Record<string, string>;
+  const saved = settings.currentDirectory;
+  return saved && typeof saved === 'string' ? saved : undefined;
+}
+
 /** Gatekeeper から保存済みディレクトリを復元 (失敗時は次回リクエストで再試行) */
 export async function ensureCurrentDirectoryLoaded(): Promise<void> {
   if (loaded && Date.now() - loadedAt < RELOAD_TTL_MS) return;
   if (currentDirectory && Date.now() - loadedAt < RELOAD_TTL_MS) return;
+  // 進行中の復元があれば同一 Promise を await し、競合で復元をスキップしない
+  if (inflight) return inflight;
   // 直近 2 秒以内の試行はスキップ (再試行を抑制しつつ、復旧時に速やかに反映する)
   if (Date.now() - lastAttemptAt < 2000) return;
   lastAttemptAt = Date.now();
-  try {
-    const res = await fetch(`${env.gatekeeperUrl}/api/settings`, {
-      signal: AbortSignal.timeout(1500),
-    });
-    if (!res.ok) return;
-    const settings = (await res.json()) as Record<string, string>;
-    const saved = settings.currentDirectory;
-    if (saved && typeof saved === 'string') {
-      currentDirectory = saved;
-      log.debug(`current directory restored: ${saved}`);
+  inflight = (async () => {
+    const gen = generation;
+    try {
+      const saved = await fetchSavedDirectory();
+      // fetch 中に新しい PUT が完了していた場合は古い応答で上書きしない
+      if (saved && gen === generation) {
+        currentDirectory = saved;
+        log.debug(`current directory restored: ${saved}`);
+      }
+      loaded = true;
+      loadedAt = Date.now();
+    } catch {
+      // Gatekeeper 未起動などの一時失敗では loaded を立てず、次回リクエストで再試行する
+      log.debug('current directory restore deferred (gatekeeper unavailable)');
+    } finally {
+      inflight = null;
     }
-    loaded = true;
-    loadedAt = Date.now();
-  } catch {
-    // Gatekeeper 未起動などの一時失敗では loaded を立てず、次回リクエストで再試行する
-    log.debug('current directory restore deferred (gatekeeper unavailable)');
-  }
+  })();
+  return inflight;
 }
 
 /** サーバ起動時に永続化済みディレクトリを復元 (#56) */
@@ -62,25 +81,26 @@ export async function resolveCurrentDirectory(): Promise<string> {
   return '';
 }
 
-/** opencode が認識しているプロジェクト一覧 */
+/** opencode が認識しているプロジェクト一覧 (worktree の重複は排除) */
 export async function listProjects(): Promise<string[]> {
   const result = await callOpencode(() => getOpencodeClient().project.list({}));
   if (result.error || !Array.isArray(result.data)) return [];
-  return result.data
-    .map((p) => p?.worktree)
-    .filter((w): w is string => typeof w === 'string' && w.length > 0);
+  return [
+    ...new Set(
+      result.data
+        .map((p) => p?.worktree)
+        .filter((w): w is string => typeof w === 'string' && w.length > 0),
+    ),
+  ];
 }
 
 /** Gatekeeper の実状態とメモリ状態を再同期 (PUT 失敗時の状態不整合対策) */
 async function reconcileCurrentDirectory(): Promise<void> {
+  // 復元 (restore) が進行中なら先に完了を待ち、直近の設定を取りこぼさない
+  await ensureCurrentDirectoryLoaded();
   try {
-    const res = await fetch(`${env.gatekeeperUrl}/api/settings`, {
-      signal: AbortSignal.timeout(1500),
-    });
-    if (!res.ok) return;
-    const settings = (await res.json()) as Record<string, string>;
-    const saved = settings.currentDirectory;
-    if (saved && typeof saved === 'string') currentDirectory = saved;
+    const saved = await fetchSavedDirectory();
+    if (saved) currentDirectory = saved;
   } catch {
     /* 再検証失敗時は現状維持 */
   }
@@ -109,5 +129,6 @@ export async function applyCurrentDirectory(directory: string): Promise<void> {
     throw new Error(`gatekeeper persist failed: ${res.status}`);
   }
   currentDirectory = directory;
+  generation++;
   log.debug(`current directory set: ${directory}`);
 }

@@ -134,7 +134,8 @@ export const api = {
 
   cwd: {
     /** カレントディレクトリ + 選択可能なプロジェクト一覧 (#56) */
-    get: () => request<{ current: string; projects: string[] }>('/api/cwd'),
+    get: (init?: RequestInit) =>
+      request<{ current: string; projects: string[] }>('/api/cwd', init),
     /** ディレクトリを選択 (#56) */
     set: (directory: string) =>
       request<{ current: string }>('/api/cwd', {
