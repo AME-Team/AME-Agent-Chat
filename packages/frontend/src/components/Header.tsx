@@ -51,6 +51,7 @@ export function Header() {
   const sidebarCollapsed = useUI((s) => s.sidebarCollapsed);
   const toggleSidebar = useUI((s) => s.toggleSidebar);
   const currentDirectory = useApp((s) => s.currentDirectory);
+  const cwdLoading = useApp((s) => s.cwdLoading);
 
   const cycleTheme = () => {
     const order: Theme[] = ['light', 'dark', 'system'];
@@ -83,7 +84,9 @@ export function Header() {
           className="flex h-8 max-w-48 items-center gap-1.5 rounded-md px-2 text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300"
         >
           <Folder className="size-4 shrink-0" />
-          <span className="truncate font-mono text-xs">{currentDirectory || t('cwd.empty')}</span>
+          <span className="truncate font-mono text-xs">
+            {currentDirectory ? currentDirectory : cwdLoading ? t('cwd.loading') : t('cwd.empty')}
+          </span>
         </button>
         {/* 1ポイントカラー切替 (ame-ui-philosophy §4.2) */}
         <div className="flex items-center gap-1" role="group" aria-label="accent">

@@ -9,6 +9,8 @@ import { env } from './env.js';
 import { callOpencode, getOpencodeClient } from './opencode.js';
 import { log } from './logger.js';
 
+// 不変条件: currentDirectory を非空に更新する全経路 (復元 / ユーザー選択 / 再同期) で
+// loaded=true / loadedAt=Date.now() も同時に設定する (ensureCurrentDirectoryLoaded の TTL ガード前提)。
 let currentDirectory: string | undefined;
 let loaded = false;
 let loadedAt = 0;
@@ -51,8 +53,9 @@ async function fetchSavedDirectory(): Promise<string | undefined> {
 
 /** Gatekeeper から保存済みディレクトリを復元 (失敗時は次回リクエストで再試行) */
 export async function ensureCurrentDirectoryLoaded(): Promise<void> {
+  // 復元/選択成功時は loaded と currentDirectory が同時に設定されるため、
+  // TTL ガードは loaded のみで十分 (currentDirectory の条件は冗長)
   if (loaded && Date.now() - loadedAt < RELOAD_TTL_MS) return;
-  if (currentDirectory && Date.now() - loadedAt < RELOAD_TTL_MS) return;
   // 進行中の復元があれば同一 Promise を await し、競合で復元をスキップしない
   if (inflight) return inflight;
   // 直近 2 秒以内の試行はスキップ (再試行を抑制しつつ、復旧時に速やかに反映する)
@@ -98,26 +101,46 @@ export async function initCurrentDirectory(): Promise<void> {
   await ensureCurrentDirectoryLoaded();
 }
 
+/**
+ * project.current の戻り値から worktree を取り出す。
+ * 実装 (opencode SDK) は単体 Project オブジェクト (worktree 直下) を返すため
+ * トップレベル worktree を優先する。配列 / {projects} エンベロープなど変形した形状には
+ * 先頭要素で防御的にフォールバックする (カレント特定フィールドが増えた場合はそちらを優先すること)。
+ */
+function firstWorktree(data: unknown): string | undefined {
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const wt = (data as { worktree?: unknown }).worktree;
+    if (typeof wt === 'string' && wt.length > 0) return wt;
+  }
+  return toWorktrees(data)[0];
+}
+
 /** 選択中のディレクトリ (未選択時は opencode のカレントプロジェクト) */
 export async function resolveCurrentDirectory(): Promise<string> {
   await ensureCurrentDirectoryLoaded();
   if (currentDirectory) return currentDirectory;
   const result = await callOpencode(() => getOpencodeClient().project.current({}));
-  if (!result.error && result.data?.worktree) return result.data.worktree;
-  return '';
+  if (result.error) return '';
+  return firstWorktree(result.data) ?? '';
+}
+
+/** project.list の戻り値から worktree 一覧を取り出す (配列 / {projects} エンベロープ双方に対応) */
+function toWorktrees(data: unknown): string[] {
+  const candidates: unknown[] = Array.isArray(data)
+    ? data
+    : data && typeof data === 'object' && Array.isArray((data as { projects?: unknown }).projects)
+      ? (data as { projects: unknown[] }).projects
+      : [];
+  return candidates
+    .map((p) => (p as { worktree?: unknown })?.worktree)
+    .filter((w): w is string => typeof w === 'string' && w.length > 0);
 }
 
 /** opencode が認識しているプロジェクト一覧 (worktree の重複は排除) */
 export async function listProjects(): Promise<string[]> {
   const result = await callOpencode(() => getOpencodeClient().project.list({}));
-  if (result.error || !Array.isArray(result.data)) return [];
-  return [
-    ...new Set(
-      result.data
-        .map((p) => p?.worktree)
-        .filter((w): w is string => typeof w === 'string' && w.length > 0),
-    ),
-  ];
+  if (result.error) return [];
+  return [...new Set(toWorktrees(result.data))];
 }
 
 /** Gatekeeper の実状態とメモリ状態を再同期 (PUT 失敗時の状態不整合対策) */
@@ -126,7 +149,13 @@ async function reconcileCurrentDirectory(): Promise<void> {
   await ensureCurrentDirectoryLoaded();
   try {
     const saved = await fetchSavedDirectory();
-    if (saved) currentDirectory = saved;
+    if (saved) {
+      // currentDirectory を更新した場合は loaded/loadedAt も同時更新し、
+      // ensureCurrentDirectoryLoaded の TTL ガード不変条件を維持する
+      currentDirectory = saved;
+      loaded = true;
+      loadedAt = Date.now();
+    }
   } catch {
     /* 再検証失敗時は現状維持 */
   }
