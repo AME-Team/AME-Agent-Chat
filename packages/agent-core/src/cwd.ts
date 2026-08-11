@@ -82,6 +82,17 @@ export async function ensureCurrentDirectoryLoaded(): Promise<void> {
   return inflight;
 }
 
+/**
+ * 復元を非ブロッキングで開始する (ミドルウェア用)。
+ * 進行中の復元があればその Promise を返し (join 可能)、なければバックグラウンドで
+ * 発火して undefined を返す。新規の復元試行でリクエストをブロックしない。
+ */
+export function restoreCurrentDirectoryAsync(): Promise<void> | undefined {
+  if (inflight) return inflight;
+  void ensureCurrentDirectoryLoaded();
+  return undefined;
+}
+
 /** サーバ起動時に永続化済みディレクトリを復元 (#56) */
 export async function initCurrentDirectory(): Promise<void> {
   await ensureCurrentDirectoryLoaded();
@@ -145,5 +156,9 @@ export async function applyCurrentDirectory(directory: string): Promise<void> {
   }
   currentDirectory = directory;
   generation++;
+  // PUT 成功で Gatekeeper の状態が確定したため loaded / loadedAt を更新しキャッシュを最新化する
+  // (GET /api/cwd の settingsOk フィールドはこの loaded を元に返す)
+  loaded = true;
+  loadedAt = Date.now();
   log.debug(`current directory set: ${directory}`);
 }

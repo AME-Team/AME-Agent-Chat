@@ -6,7 +6,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { env } from './env.js';
 import { log } from './logger.js';
-import { ensureCurrentDirectoryLoaded } from './cwd.js';
+import { restoreCurrentDirectoryAsync } from './cwd.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerSessionRoutes } from './routes/sessions.js';
 import { registerMessageRoutes } from './routes/messages.js';
@@ -45,10 +45,12 @@ export function createApp(): Hono {
     }),
   );
 
-  // 永続化済みカレントディレクトリの復元を再試行 (#56)
-  // withDirectory() は同期のため、リクエスト毎にここで復元を保証する
+  // 永続化済みカレントディレクトリの復元を試行 (#56)
+  // 進行中の復元があれば join するが、新規の復元試行でリクエストをブロックしない
+  // (未復元時は既定ディレクトリへフォールバックする既存挙動のまま)
   app.use('/api/*', async (_c, next) => {
-    await ensureCurrentDirectoryLoaded();
+    const pending = restoreCurrentDirectoryAsync();
+    if (pending) await pending;
     await next();
   });
 
