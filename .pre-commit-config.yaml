@@ -41,15 +41,14 @@ repos:
     hooks:
       # eslint / prettier は node_modules の .bin を起動するため、fresh clone 直後に
       # pnpm install を実行していない場合は先に実行を案内する (fail_fast で Gate 1 全体が
-      # 無効化されないためのガード)。あわせて eslint --no-warn-ignored に必要な >=9.20 を検査する。
+      # 無効化されないためのガード)。あわせて eslint --no-warn-ignored に必要な >=9.20 を
+      # scripts/check-eslint-version.mjs で検査する (インラインの複雑なクォートを避ける)。
       - id: node-modules-check
         name: check node_modules (pnpm install)
         entry: >-
           bash -c 'test -x ./node_modules/.bin/eslint && test -x ./node_modules/.bin/prettier ||
           { echo "node_modules が未導入です。先に pnpm install を実行してください。"; exit 1; };
-          node -e "const v=require(\"./node_modules/eslint/package.json\").version;
-          const [m,n]=v.split(\".\").map(Number);
-          if(m<9||(m===9&&n<20)){console.error(\"ESLint >=9.20 が必要です (現在 \"+v+\")\");process.exit(1)}"'
+          node ./scripts/check-eslint-version.mjs'
         language: system
         always_run: true
         pass_filenames: false
