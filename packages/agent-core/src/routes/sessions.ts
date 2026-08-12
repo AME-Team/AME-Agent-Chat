@@ -12,6 +12,7 @@ import type { Hono } from 'hono';
 import { callOpencode, getOpencodeClient } from '../opencode.js';
 import { env } from '../env.js';
 import { withDirectory } from '../cwd.js';
+import { isTerminalSessionID } from './terminal.js';
 
 export function registerSessionRoutes(app: Hono): void {
   const api = getOpencodeClient();
@@ -21,7 +22,18 @@ export function registerSessionRoutes(app: Hono): void {
       api.session.list({ query: withDirectory() }),
     );
     if (error) return c.json({ error }, unreachable ? 503 : 500);
-    return c.json(data);
+    // ターミナル専用セッションは ID レジストリで判別してチャット一覧に混入させない (Issue #65)。
+    // レジストリ消失時 (/tmp クリア等) のフォールバックとして、固有タイトルパターンでも除外する。
+    // パターンは 'AME Terminal <10桁以上の数字 (=Date.now のエポック)>' に厳密化し、ユーザーが
+    // 偶然 "AME Terminal 123" のように短い数字で名付けたセッションを誤除外しないよう配慮
+    // (再利用には使わずフィルタのみ)
+    const terminalTitleRe = /^AME Terminal \d{10,}$/;
+    const sessions = (data ?? []).filter(
+      (s) =>
+        !isTerminalSessionID(s.id) &&
+        !(typeof s.title === 'string' && terminalTitleRe.test(s.title)),
+    );
+    return c.json(sessions);
   });
 
   app.post('/api/sessions', async (c) => {

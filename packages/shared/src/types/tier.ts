@@ -39,10 +39,12 @@ export const EFFORT_MATRICES: Record<EffortPreset, EffortMatrix> = {
 };
 
 /** デフォルトのティア別モデル (要件 #1 §3.2.1) — 全て OpenCode Go。
- *  推論量は Effort Normal マトリクス (High×Middle / Middle×Middle / Low×Low) に整合。 */
+ *  推論量は Effort Normal マトリクス (High×Middle / Middle×Middle / Low×Low) に整合。
+ *  ※ Issue #60: モデル ID は opencode が返す実 ID と一致させる (qwen3.7-plus は
+ *    ハイフン無し)。存在しないモデル ID を注入すると opencode が 500 を返す。 */
 export const DEFAULT_TIER_CONFIG: TierConfig = {
   high: { provider: 'opencode-go', model: 'glm-5.2', reasoningEffort: 'middle' },
-  middle: { provider: 'opencode-go', model: 'qwen-3.7-plus', reasoningEffort: 'middle' },
+  middle: { provider: 'opencode-go', model: 'qwen3.7-plus', reasoningEffort: 'middle' },
   low: { provider: 'opencode-go', model: 'deepseek-v4-flash', reasoningEffort: 'low' },
 };
 

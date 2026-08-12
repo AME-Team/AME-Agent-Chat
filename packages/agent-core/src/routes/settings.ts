@@ -4,6 +4,7 @@
  */
 import type { Hono } from 'hono';
 import { env } from '../env.js';
+import { invalidateSettingsCache } from '../router.js';
 
 export function registerSettingsRoutes(app: Hono): void {
   app.get('/api/settings', async (c) => {
@@ -20,6 +21,8 @@ export function registerSettingsRoutes(app: Hono): void {
       body: JSON.stringify(body),
     }).catch(() => null);
     if (!res) return c.json({ error: 'gatekeeper unavailable' }, 503);
+    // 設定変更を BFF のルーターキャッシュへ即時反映 (書き込み成功後 — Issue #62)
+    invalidateSettingsCache();
     // Gatekeeper のステータスを透過 (エラー時は失敗として伝わる)
     return c.json(await res.json(), res.status as 200 | 400 | 500);
   });

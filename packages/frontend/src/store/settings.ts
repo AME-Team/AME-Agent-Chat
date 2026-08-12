@@ -65,6 +65,8 @@ export const useSettings = create<SettingsState>((set, get) => ({
 
   save: async () => {
     const { tiers, effortPreset, compressContext } = get();
+    // selectedModel は app store が即時永続化する。ここに含めると保存順により
+    // 古い値で上書きし得るため含めず、Gatekeeper のキー単位 PUT に委ねる
     await api.settings.put({
       tiers: JSON.stringify(tiers),
       effortPreset,

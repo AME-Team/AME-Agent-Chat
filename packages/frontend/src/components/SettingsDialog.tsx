@@ -5,8 +5,10 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import {
+  CHAT_WIDTH_OPTIONS,
   EFFORT_PRESET_LABELS,
   REASONING_EFFORT_LABELS,
+  type ChatWidth,
   type EffortPreset,
   type ModelTier,
   type ReasoningEffort,
@@ -14,6 +16,7 @@ import {
 import { useI18n } from '../lib/i18n';
 import { useUI } from '../store/ui';
 import { useSettings } from '../store/settings';
+import { useApp } from '../store/app';
 
 const TIERS: ModelTier[] = ['high', 'middle', 'low'];
 const REASONING: ReasoningEffort[] = ['high', 'middle', 'low', 'nothing'];
@@ -23,6 +26,11 @@ export function ModelSettingsDialog() {
   const { t } = useI18n();
   const open = useUI((s) => s.settingsOpen);
   const setOpen = useUI((s) => s.setSettingsOpen);
+  const chatWidth = useUI((s) => s.chatWidth);
+  const setChatWidth = useUI((s) => s.setChatWidth);
+  const enableOrchestration = useApp((s) => s.enableOrchestration);
+  const setEnableOrchestration = useApp((s) => s.setEnableOrchestration);
+  const setSelectedModel = useApp((s) => s.setSelectedModel);
   const {
     tiers,
     effortPreset,
@@ -142,7 +150,7 @@ export function ModelSettingsDialog() {
         </section>
 
         {/* プロンプト圧縮 (#18) */}
-        <label className="mb-6 flex items-center gap-2 text-sm">
+        <label className="mb-2 flex items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={compressContext}
@@ -151,6 +159,46 @@ export function ModelSettingsDialog() {
           />
           {t('settings.compress')}
         </label>
+
+        {/* LLM オーケストレーション (Issue #62) — デフォルト OFF。
+            有効化時はヘッダーの明示モデル選択を Auto に戻し、自動ルーティングが
+            明示選択でサイレントに無効化されないようにする。両者は app store 経由で
+            即時・同時に永続化され、不整合な状態にならない */}
+        <label className="mb-6 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={enableOrchestration}
+            onChange={(e) => {
+              setEnableOrchestration(e.target.checked);
+              if (e.target.checked) void setSelectedModel(null);
+            }}
+            className="size-4"
+          />
+          {t('settings.orchestration')}
+        </label>
+
+        {/* チャット幅 (Issue #63) — UI プリセットは localStorage に即時反映 */}
+        <section className="mb-6">
+          <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+            {t('settings.chatWidth')}
+          </h3>
+          <div className="flex flex-wrap gap-1">
+            {CHAT_WIDTH_OPTIONS.map((w) => (
+              <button
+                key={w}
+                type="button"
+                onClick={() => setChatWidth(w as ChatWidth)}
+                className={`rounded-md px-3 py-1.5 text-sm transition-colors duration-150 ${
+                  chatWidth === w
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {t(`settings.chatWidth.${w}`)}
+              </button>
+            ))}
+          </div>
+        </section>
 
         {loadError && <p className="mb-4 text-sm text-red-600">{t('settings.saveFailed')}</p>}
 

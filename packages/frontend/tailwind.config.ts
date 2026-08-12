@@ -2,7 +2,7 @@ import type { Config } from 'tailwindcss';
 
 // ame-ui-philosophy 準拠: 8px グリッド / rounded-md,lg / --color-primary で 1ポイントカラー切替
 export default {
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  content: ['./index.html', './src/**/*.{ts,tsx}', '../shared/src/**/*.{ts,tsx}'],
   darkMode: 'class',
   theme: {
     extend: {

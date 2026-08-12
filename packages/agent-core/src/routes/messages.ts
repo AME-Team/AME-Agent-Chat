@@ -14,7 +14,8 @@ import { lookup } from 'node:dns/promises';
 import { callOpencode, getOpencodeClient } from '../opencode.js';
 import { env } from '../env.js';
 import { withDirectory } from '../cwd.js';
-import { resolveTaskModel, shouldCompact } from '../router.js';
+import { resolveTaskModel, shouldCompact, type RoutedModel } from '../router.js';
+import { log, safeStringify } from '../logger.js';
 
 interface PromptRequestBody {
   text: string;
@@ -22,6 +23,21 @@ interface PromptRequestBody {
   agent?: string;
   /** 添付ファイル (D&D / クリップボード貼付) — #2 §3.2 */
   attachments?: Array<{ mime: string; url: string; filename?: string }>;
+}
+
+/** プロンプト失敗時の HTTP ステータスを決定 (Issue #60 補足)。
+ *  到達不能なら 503。クライアント起因 (モデル不存在・入力不正等) は既知の文言から 400 に
+ *  マップし、それ以外は 500 (サーバ起因) とする。SDK の {error} は詳細が限定的なためヒューリスティック */
+function promptErrorStatus(error: unknown, unreachable?: boolean): 400 | 500 | 503 {
+  if (unreachable) return 503;
+  const text = typeof error === 'string' ? error : safeStringify(error);
+  const lower = text.toLowerCase();
+  // 'invalid' 等の広い文言はサーバ起因エラーにも含まれ得るため判定に含めない (500 に倒す)。
+  // モデル不存在等の明確なクライアント起因のみ 400 へマップする
+  if (lower.includes('not found') || lower.includes('does not exist')) {
+    return 400;
+  }
+  return 500;
 }
 
 /** @ファイル参照 (#2 §3.3): @path トークンを解決しファイル内容をコンテキストへ追加
@@ -98,8 +114,16 @@ export function registerMessageRoutes(app: Hono): void {
       await api.session.summarize({ path: { id } }).catch(() => {});
     }
 
-    // LLM ルーター (#15): 未指定時はルールベースでモデルを選択し注入 (§2.3)
-    const routed = body.model ? undefined : await resolveTaskModel(text);
+    // LLM ルーター (#15): オーケストレーション有効時のみ自動選択 (Issue #62)。
+    //   - body.model 指定あり → フロントの明示選択を優先
+    //   - body.model 無し + オーケストレーション有効 → ルールベースでモデル注入
+    //   - body.model 無し + オーケストレーション無効 (デフォルト) → モデル非注入 (opencode 既定)
+    let routed: RoutedModel | null = null;
+    let model: { providerID: string; modelID: string } | undefined = body.model;
+    if (!model) {
+      routed = await resolveTaskModel(text);
+      if (routed) model = { providerID: routed.providerID, modelID: routed.modelID };
+    }
 
     // ※ 推論量は OpenCode SDK の prompt body に直接注入できない (model は providerID/modelID のみ)。
     //   実効推論量を routed.reasoningEffort として返し、表示・記録に利用する (§3.2.1/§3.2.3)。
@@ -115,20 +139,33 @@ export function registerMessageRoutes(app: Hono): void {
         }
       }
     }
+    log.debug(
+      'prompt send',
+      safeStringify({
+        sessionID: id,
+        textLength: text.length,
+        parts: parts.length,
+        model: model ?? 'default',
+        agent: body.agent ?? 'build',
+      }),
+    );
     const { data, error, unreachable } = await callOpencode(() =>
       api.session.prompt({
         path: { id },
         body: {
           parts,
-          model:
-            body.model ??
-            (routed ? { providerID: routed.providerID, modelID: routed.modelID } : undefined),
+          model,
           agent: body.agent,
         },
         query: withDirectory(),
       }),
     );
-    if (error) return c.json({ error }, unreachable ? 503 : 500);
+    if (error) {
+      // Issue #60: SDK が { error } を返すケース (存在しないモデル等) は throw されないため、
+      // 詳細を明示的にログへ残す (pnpm dev で原因追跡可能にする)
+      log.error('opencode prompt failed', safeStringify(error), unreachable ? '(unreachable)' : '');
+      return c.json({ error }, promptErrorStatus(error, unreachable));
+    }
     // レスポンススキーマを常に一定に保つ (model 指定有無で形状を変えない)
     return c.json({ info: data, routed: routed ?? null }, 201);
   });

@@ -22,18 +22,32 @@ A single-point color with the following **5 presets** is available. Different va
 
 The language dropdown in the header switches between **日本語 / English**. The UI font also switches accordingly (Noto Sans JP for Japanese, Noto Sans for English).
 
+## Model selection (header)
+
+The model dropdown in the header lets you select the model to use, just like a normal chat app (Issue #62). The selected model is sent with each message.
+
+- **Auto (default)**: no model is specified. With orchestration disabled (the default), opencode's default model is used.
+
 ## Model settings (Tiers and Effort)
 
 Open the **model settings dialog** from the "Settings" icon in the header. This is where you customize the LLM strategy.
 
+### LLM orchestration
+
+The **"LLM orchestration"** checkbox (default: **off**) enables automatic model selection by task when no model is specified. When off, the model selected in the header (or opencode's default) is used (Issue #62).
+
+::: tip Orchestration vs. model selection
+Enabling orchestration resets the header model selection to **Auto (default)** so automatic routing takes priority. To use a specific model, keep orchestration off and select it in the header.
+:::
+
 ### Tiers (3-layer model tiers)
 
-Tasks are automatically routed to one of three tiers based on their content.
+With orchestration enabled, tasks are automatically routed to one of three tiers based on their content.
 
 | Tier   | Role                                                                 | Default model (provider: opencode-go) | Default reasoning |
 | ------ | -------------------------------------------------------------------- | ------------------------------------- | ----------------- |
 | High   | Complex tasks such as architecture design, debugging and refactoring | `glm-5.2`                             | Middle            |
-| Middle | General implementation and questions (fallback for classification)   | `qwen-3.7-plus`                       | Middle            |
+| Middle | General implementation and questions (fallback for classification)   | `qwen3.7-plus`                        | Middle            |
 | Low    | Light tasks such as search, listing and file reference               | `deepseek-v4-flash`                   | Low               |
 
 For each tier you can set the **provider / model / reasoning effort** individually.
@@ -63,7 +77,19 @@ Choosing one of the 5 presets for the "quality × cost" balance applies the reas
 
 ### Context compression
 
-Enabling the **"Compress context"** checkbox summarizes history before sending, keeping context from bloating. Useful for cutting cost.
+Enabling the **"Compress context"** checkbox (default: **off**) summarizes history before sending, keeping context from bloating. Useful for cutting cost.
+
+### Chat width (Issue #63)
+
+The chat area (main window) width can be adjusted from 5 presets. Changes apply immediately and are stored in local storage. For responsive behavior, small screens take the maximum width up to the preset's `max-w-*` limit (narrow presets may not reach full width on smaller screens).
+
+| Preset      | Max width             |
+| ----------- | --------------------- |
+| Full width  | None (full width)     |
+| Wide        | `max-w-5xl`           |
+| Medium-wide | `max-w-4xl`           |
+| Standard    | `max-w-3xl` (default) |
+| Narrow      | `max-w-2xl`           |
 
 ## Usage and cost
 

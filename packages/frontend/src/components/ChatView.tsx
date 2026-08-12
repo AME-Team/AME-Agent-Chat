@@ -4,8 +4,11 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDown } from 'lucide-react';
+import { CHAT_WIDTH_CLASSES } from '@ame-agent-chat/shared';
 import { useI18n } from '../lib/i18n';
 import { useApp } from '../store/app';
+import { useUI } from '../store/ui';
+import { cn } from '../lib/cn';
 import { MessageItem } from './MessageItem';
 import { ProcessAccordion } from './ProcessAccordion';
 
@@ -14,6 +17,7 @@ export function ChatView() {
   const messages = useApp((s) => s.messages);
   const currentId = useApp((s) => s.currentId);
   const reachable = useApp((s) => s.reachable);
+  const chatWidth = useUI((s) => s.chatWidth);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -32,16 +36,17 @@ export function ChatView() {
   };
 
   return (
-    <div className="relative flex flex-1 flex-col">
-      <ProcessAccordion />
-      <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-4 py-6">
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <ProcessAccordion widthClass={CHAT_WIDTH_CLASSES[chatWidth]} />
+      {/* Issue #64: min-h-0 が無いと flex 子が収縮せず縦スクロールが効かない */}
+      <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-gray-400">
             <p className="text-lg">{t('chat.empty')}</p>
             {!reachable && <p className="text-sm">{t('chat.unreachable')}</p>}
           </div>
         ) : (
-          <div className="mx-auto flex max-w-3xl flex-col gap-6">
+          <div className={cn('mx-auto flex flex-col gap-6', CHAT_WIDTH_CLASSES[chatWidth])}>
             {messages.map((m) => (
               <MessageItem key={m.id} message={m} />
             ))}

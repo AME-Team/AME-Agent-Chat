@@ -104,11 +104,26 @@ Click the **folder icon** (or the current directory label) in the header to open
 
 The selected directory is saved to Gatekeeper and restored on the next launch. Switching reloads the session list scoped to that directory.
 
+## Terminal (Issue #65)
+
+`Ctrl / Cmd + J` toggles the **terminal panel** at the bottom of the screen. Type a command and press Enter to run it inside the sandbox; the output is shown in monospace and the history is kept even when the panel is closed.
+
+::: warning Execution environment
+The terminal runs commands in the **OpenCode sandbox** (`session.shell`), same as `!Bash`. It can modify files in the workspace without an approval dialog, so prefer read-only inspection commands.
+
+For security, the terminal API assumes access **via localhost**. If you open the frontend from a LAN IP (e.g. `http://192.168.x.x:51730`), set that origin in Agent Core's `CORS_ORIGIN` environment variable or use a reverse proxy.
+:::
+
+::: info Shell state
+Each command runs in a fresh shell, so changes like `cd` or environment variables are not carried over to the next command.
+:::
+
 ## Keyboard shortcuts
 
 | Shortcut         | Action                                                   |
 | ---------------- | -------------------------------------------------------- |
 | `Ctrl / Cmd + N` | Start a new chat (session)                               |
+| `Ctrl / Cmd + J` | Toggle the terminal panel                                |
 | `?`              | Open the help dialog (when the input box is not focused) |
 
 ## Checking connectivity

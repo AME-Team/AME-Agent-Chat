@@ -14,9 +14,11 @@ import {
   Sun,
 } from 'lucide-react';
 import { BarChart3 } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
 import { useI18n } from '../lib/i18n';
 import { cn } from '../lib/cn';
 import { useApp } from '../store/app';
+import { useModels } from '../store/models';
 import { useUI } from '../store/ui';
 import type { AccentColor, Theme } from '@ame-agent-chat/shared';
 
@@ -52,6 +54,48 @@ export function Header() {
   const toggleSidebar = useUI((s) => s.toggleSidebar);
   const currentDirectory = useApp((s) => s.currentDirectory);
   const cwdLoading = useApp((s) => s.cwdLoading);
+  const selectedModel = useApp((s) => s.selectedModel);
+  const setSelectedModel = useApp((s) => s.setSelectedModel);
+  const enableOrchestration = useApp((s) => s.enableOrchestration);
+  const models = useModels((s) => s.options);
+  const modelsLoaded = useModels((s) => s.loaded);
+  const loadModels = useModels((s) => s.load);
+
+  // モデル一覧を一度だけ取得 (Issue #62)
+  useEffect(() => {
+    void loadModels();
+  }, [loadModels]);
+
+  // プロバイダー毎にグループ化した選択肢 (値は `providerID|modelID`)
+  const providers = useMemo(() => {
+    const groups = new Map<string, Array<{ modelID: string; label: string }>>();
+    for (const m of models) {
+      const list = groups.get(m.providerID) ?? [];
+      list.push({ modelID: m.modelID, label: m.label });
+      groups.set(m.providerID, list);
+    }
+    return [...groups.entries()];
+  }, [models]);
+  const modelValue = selectedModel ? `${selectedModel.providerID}|${selectedModel.modelID}` : '';
+  // 復元済みの選択モデルが一覧に無い (取得前 or モデル廃止) 場合も、
+  // UI 上「Auto」表示のまま挙動が乖離しないよう選択肢に補完する
+  const optionValues = new Set(
+    providers.flatMap(([provider, list]) => list.map((m) => `${provider}|${m.modelID}`)),
+  );
+  const modelOptionMissing = modelValue !== '' && !optionValues.has(modelValue);
+
+  const onModelChange = (value: string) => {
+    if (!value) {
+      void setSelectedModel(null);
+      return;
+    }
+    const [providerID, modelID] = value.split('|');
+    if (providerID && modelID) {
+      // 明示モデル選択時はオーケストレーションを OFF に戻し、自動ルーティングと排他にする。
+      // setSelectedModel が enableOrchestration も 1 PUT で原子更新するため、ここでは選択のみを行う
+      void setSelectedModel({ providerID, modelID });
+    }
+  };
 
   const cycleTheme = () => {
     const order: Theme[] = ['light', 'dark', 'system'];
@@ -88,6 +132,37 @@ export function Header() {
             {currentDirectory ? currentDirectory : cwdLoading ? t('cwd.loading') : t('cwd.empty')}
           </span>
         </button>
+        {/* モデル選択 (Issue #62): 明示選択時はそのモデルで動作、未選択は既定/オーケストレーション。
+            オーケストレーション ON 中は無効化 (明示モデル優先によるサイレント無効化を防ぐ) */}
+        <select
+          value={modelValue}
+          onChange={(e) => onModelChange(e.target.value)}
+          onFocus={() => {
+            // 未取得 (loaded=false) のままだった場合、ドロップダウン再オープンで再取得する。
+            // force=true で failed (再試行上限到達) を解除し、手動回復経路を維持する
+            if (!modelsLoaded) void loadModels(true);
+          }}
+          disabled={enableOrchestration}
+          aria-label={t('header.model')}
+          title={enableOrchestration ? t('header.modelDisabled') : t('header.model')}
+          className="max-w-44 rounded-md border border-gray-200 bg-transparent px-2 py-1 text-xs outline-none disabled:opacity-50 dark:border-gray-700"
+        >
+          <option value="">{t('header.modelDefault')}</option>
+          {modelOptionMissing && (
+            <option value={modelValue}>
+              {selectedModel ? `${selectedModel.providerID}/${selectedModel.modelID}` : ''}
+            </option>
+          )}
+          {providers.map(([provider, list]) => (
+            <optgroup key={provider} label={provider}>
+              {list.map((m) => (
+                <option key={m.modelID} value={`${provider}|${m.modelID}`}>
+                  {m.modelID}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
         {/* 1ポイントカラー切替 (ame-ui-philosophy §4.2) */}
         <div className="flex items-center gap-1" role="group" aria-label="accent">
           {ACCENTS.map((a) => (

@@ -3,6 +3,7 @@
  * トースト通知・ヘルプダイアログ開閉・思考ブロック表示を管理。
  */
 import { create } from 'zustand';
+import { CHAT_WIDTH_OPTIONS, type ChatWidth } from '@ame-agent-chat/shared';
 
 export interface Toast {
   id: string;
@@ -33,6 +34,10 @@ interface UIState {
   cwdOpen: boolean;
   /** サイドバー開閉 (#57) — localStorage 永続化 */
   sidebarCollapsed: boolean;
+  /** ターミナルパネル開閉 (Issue #65) — localStorage 永続化 */
+  terminalOpen: boolean;
+  /** チャットエリア幅プリセット (Issue #63) — localStorage 永続化 */
+  chatWidth: ChatWidth;
   preview: { type: 'markdown' | 'image'; content: string } | null;
   showThinking: boolean;
   showDetails: boolean;
@@ -47,6 +52,8 @@ interface UIState {
   setUsageOpen: (open: boolean) => void;
   setCwdOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  setTerminalOpen: (open: boolean) => void;
+  setChatWidth: (width: ChatWidth) => void;
   setPreview: (p: UIState['preview']) => void;
   toggleThinking: () => void;
   toggleDetails: () => void;
@@ -63,6 +70,10 @@ export const useUI = create<UIState>((set, get) => ({
   usageOpen: false,
   cwdOpen: false,
   sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true',
+  terminalOpen: localStorage.getItem('terminalOpen') === 'true',
+  chatWidth: CHAT_WIDTH_OPTIONS.includes(localStorage.getItem('chatWidth') as ChatWidth)
+    ? (localStorage.getItem('chatWidth') as ChatWidth)
+    : 'standard',
   preview: null,
   showThinking: true,
   showDetails: false,
@@ -86,6 +97,14 @@ export const useUI = create<UIState>((set, get) => ({
     const next = !get().sidebarCollapsed;
     localStorage.setItem('sidebarCollapsed', String(next));
     set({ sidebarCollapsed: next });
+  },
+  setTerminalOpen: (open) => {
+    localStorage.setItem('terminalOpen', String(open));
+    set({ terminalOpen: open });
+  },
+  setChatWidth: (width) => {
+    localStorage.setItem('chatWidth', width);
+    set({ chatWidth: width });
   },
   setPreview: (preview) => set({ preview }),
   toggleThinking: () => set((st) => ({ showThinking: !st.showThinking })),

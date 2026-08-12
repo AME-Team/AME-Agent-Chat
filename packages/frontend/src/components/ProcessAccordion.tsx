@@ -30,7 +30,7 @@ function ToolRow({ tool }: { tool: ToolEvent }) {
   );
 }
 
-export function ProcessAccordion() {
+export function ProcessAccordion({ widthClass }: { widthClass?: string }) {
   const tools = useApp((s) => s.tools);
   const showDetails = useUI((s) => s.showDetails);
   const [open, setOpen] = useState(false);
@@ -39,7 +39,12 @@ export function ProcessAccordion() {
   if (tools.length === 0) return null;
 
   return (
-    <div className="mx-auto mt-2 w-full max-w-3xl rounded-md border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
+    <div
+      className={cn(
+        'mx-auto mt-2 w-full rounded-md border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800',
+        widthClass ?? 'max-w-3xl',
+      )}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

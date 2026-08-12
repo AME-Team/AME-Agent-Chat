@@ -25,9 +25,22 @@ export function routeTask(text: string): ModelTier {
   return 'middle';
 }
 
+/** 保存済みティア設定に残り得る非存在モデル ID を実在 ID へ正規化 (Issue #60)。
+ *  デフォルト修正 (qwen-3.7-plus → qwen3.7-plus) は新規にのみ効くため、過去に保存した
+ *  設定キー (Gatekeeper の tiers) に残る旧 ID もここで移行する */
+const DEPRECATED_MODELS: Record<string, string> = {
+  'qwen-3.7-plus': 'qwen3.7-plus',
+};
+
+function normalizeModel(id: string): string {
+  return DEPRECATED_MODELS[id] ?? id;
+}
+
 interface EffectiveSettings {
   tiers: TierConfig;
   compressContext: boolean;
+  /** LLM オーケストレーション (#15) の有効フラグ — Issue #62 でデフォルト無効化 */
+  enableOrchestration: boolean;
 }
 
 /** tiers JSON のスキーマ検証 (不正時はデフォルトへ) */
@@ -41,7 +54,7 @@ function parseTiers(raw: string | undefined): TierConfig {
       if (t && typeof t.provider === 'string' && typeof t.model === 'string') {
         tiers[key] = {
           provider: t.provider,
-          model: t.model,
+          model: normalizeModel(t.model),
           reasoningEffort: t.reasoningEffort ?? 'middle',
         };
       }
@@ -57,10 +70,22 @@ function parseTiers(raw: string | undefined): TierConfig {
 let cache: { at: number; settings: EffectiveSettings } | null = null;
 const TTL_MS = 30_000;
 
+/** 設定 PUT 時に呼び出し、BFF キャッシュを即座に破棄する (フロント表示とサーバ挙動の乖離防止 — Issue #62) */
+export function invalidateSettingsCache(): void {
+  cache = null;
+}
+
 async function fetchEffectiveSettings(): Promise<EffectiveSettings> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.settings;
-  const fallback: EffectiveSettings = { tiers: DEFAULT_TIER_CONFIG, compressContext: false };
+  // デフォルト: オーケストレーション OFF / 圧縮 OFF (Issue #62)
+  const fallback: EffectiveSettings = {
+    tiers: DEFAULT_TIER_CONFIG,
+    compressContext: false,
+    enableOrchestration: false,
+  };
   try {
+    // Gatekeeper の /api/settings は任意キーを受け付ける key-value ストア (db/repos/settings.ts)。
+    // enableOrchestration / tiers / compressContext はフロント (store/settings.ts) から PUT される。
     const res = await fetch(`${env.gatekeeperUrl}/api/settings`, {
       signal: AbortSignal.timeout(1500),
     });
@@ -69,6 +94,7 @@ async function fetchEffectiveSettings(): Promise<EffectiveSettings> {
     const result: EffectiveSettings = {
       tiers: parseTiers(settings.tiers),
       compressContext: settings.compressContext === 'true',
+      enableOrchestration: settings.enableOrchestration === 'true',
     };
     cache = { at: Date.now(), settings: result };
     return result;
@@ -85,9 +111,14 @@ export interface RoutedModel {
   reasoningEffort: string;
 }
 
-/** タスクを分類し、使用モデル (プロバイダー+モデル+推論量) を解決 */
-export async function resolveTaskModel(text: string): Promise<RoutedModel> {
+/**
+ * タスクを分類し、使用モデル (プロバイダー+モデル+推論量) を解決。
+ * オーケストレーション無効時 (デフォルト) は null を返し、モデルを注入しない
+ * (フロントの明示選択 or opencode 既定モデルで動作 — Issue #62)。
+ */
+export async function resolveTaskModel(text: string): Promise<RoutedModel | null> {
   const settings = await fetchEffectiveSettings();
+  if (!settings.enableOrchestration) return null;
   const tier = routeTask(text);
   const config = settings.tiers[tier];
   return {

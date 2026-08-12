@@ -20,6 +20,22 @@ export type Locale = 'ja' | 'en';
 /** 送信方式 (要件 #2 §3.1) */
 export type SubmitKey = 'enter' | 'shift-enter';
 
+/** チャットエリア (メインウィンドウ) の横幅プリセット (Issue #63)
+ *  full=余白無し / wide=広め / medium=やや広め / standard=標準 / narrow=やや狭め */
+export type ChatWidth = 'full' | 'wide' | 'medium' | 'standard' | 'narrow';
+
+/** チャット幅プリセットの選択肢 (表示順) */
+export const CHAT_WIDTH_OPTIONS: ChatWidth[] = ['full', 'wide', 'medium', 'standard', 'narrow'];
+
+/** チャット幅プリセット → Tailwind max-w クラス (レスポンシブ維持: 小画面では常にフル幅) */
+export const CHAT_WIDTH_CLASSES: Record<ChatWidth, string> = {
+  full: 'max-w-none',
+  wide: 'max-w-5xl',
+  medium: 'max-w-4xl',
+  standard: 'max-w-3xl',
+  narrow: 'max-w-2xl',
+};
+
 /** 通知設定 (要件 #2 §9.2) */
 export interface NotificationSettings {
   toast: boolean;
