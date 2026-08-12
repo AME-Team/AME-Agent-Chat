@@ -18,14 +18,25 @@ interface TerminalState {
   run: (command: string) => Promise<void>;
 }
 
-/** 実行結果 (AssistantMessage) から text パーツを連結して取り出す */
+/** 実行結果 (AssistantMessage) から text パーツを連結して取り出す。
+ *  session.shell は AssistantMessage (parts 配列) を返すが、防御的に
+ *  文字列直下・{text} 直下・オブジェクト (JSON 文字列化) にも対応する */
 function extractText(output: unknown): string {
-  const parts = (output as { parts?: Array<{ type?: string; text?: string }> })?.parts;
-  if (!Array.isArray(parts)) return String(output ?? '');
-  return parts
-    .filter((p) => p && (p.type === 'text' || typeof p.text === 'string') && p.text)
-    .map((p) => p.text ?? '')
-    .join('\n');
+  if (typeof output === 'string') return output;
+  const obj = output as { parts?: Array<{ type?: string; text?: string }>; text?: unknown };
+  if (typeof obj.text === 'string') return obj.text;
+  if (Array.isArray(obj.parts)) {
+    return obj.parts
+      .filter((p) => p && (p.type === 'text' || typeof p.text === 'string') && p.text)
+      .map((p) => p.text ?? '')
+      .join('\n');
+  }
+  if (output == null) return '';
+  try {
+    return JSON.stringify(output);
+  } catch {
+    return String(output);
+  }
 }
 
 export const useTerminal = create<TerminalState>((set, get) => ({

@@ -82,7 +82,8 @@ function forgetTerminalSession(directory?: string): void {
   if (terminalSession && terminalSession.directory === key) terminalSession = null;
 }
 
-/** ターミナル専用セッションのキャッシュ (ディレクトリ別に保持し cwd 切替に追随) */
+/** 最新 1 件のターミナルセッションを保持する単一キャッシュ。
+ *  ディレクトリ切替に追随するが、永続的な per-directory 再利用は terminalStore が担う */
 let terminalSession: { directory?: string; id: string } | null = null;
 /** セッション確保中の in-flight Promise (ディレクトリ別に管理し二重作成を防ぐ) */
 const ensureInflight = new Map<string, Promise<string>>();
@@ -251,7 +252,10 @@ export function registerTerminalRoutes(app: Hono): void {
   // ループバック判定を通る。レスポンスは CORS で他オリジンから読めないため、別オリジンの CSRF 起点には使えない
   // トークン取得 (フロント起動時に 1 回呼ぶ)。exec と同じくループバックオリジンのみ許可。
   // トークンレスポンスは CORS で他オリジンから読めないため、ループバック上の悪意サイトが
-  // トークンを取得できても実行には利用できない (exec はトークン必須)
+  // トークンを取得できても実行には利用できない (exec はトークン必須)。
+  // なお global CORS (server.ts) は origin 文字列指定のため、リクエスト Origin が設定値
+  // (既定 http://localhost:51730) と一致する場合のみ ACAO を付与する。よって localhost:9999 等の
+  // 別ローカルオリジンには ACAO が付かず、レスポンスを読むことができない (Hono cors 実装確認済み)
   app.post('/api/terminal/token', (c) => {
     if (!isOriginAllowed(c.req.header('origin'))) {
       return c.json({ error: 'origin not allowed' }, 403);

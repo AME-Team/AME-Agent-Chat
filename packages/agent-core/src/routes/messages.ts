@@ -32,11 +32,9 @@ function promptErrorStatus(error: unknown, unreachable?: boolean): 400 | 500 | 5
   if (unreachable) return 503;
   const text = typeof error === 'string' ? error : safeStringify(error);
   const lower = text.toLowerCase();
-  if (
-    lower.includes('not found') ||
-    lower.includes('does not exist') ||
-    lower.includes('invalid')
-  ) {
+  // 'invalid' 等の広い文言はサーバ起因エラーにも含まれ得るため判定に含めない (500 に倒す)。
+  // モデル不存在等の明確なクライアント起因のみ 400 へマップする
+  if (lower.includes('not found') || lower.includes('does not exist')) {
     return 400;
   }
   return 500;

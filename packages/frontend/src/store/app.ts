@@ -150,6 +150,9 @@ let settingsRetries = 0;
 const SETTINGS_MAX_RETRIES = 5;
 const SETTINGS_RETRY_DELAY_MS = 4000;
 
+/** オーケストレーション有効化時に退避する選択中モデルの localStorage キー (無効化時に復元) */
+const ORCH_MODEL_STASH_KEY = 'orchestrationModelStash';
+
 /** 指定 ms 後に abort する signal を返す。AbortSignal.timeout 非対応 (旧 Safari/WebView) は手動フォールバック */
 function timeoutSignal(ms: number): AbortSignal {
   if (typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
@@ -425,14 +428,37 @@ export const useApp = create<AppState>((set, get) => ({
   },
   setEnableOrchestration: async (v) => {
     // オーケストレーション有効時は明示モデル選択と排他 (Issue #62)。
-    // Gatekeeper は設定をキー単位でマージ保存するため部分 PUT でも巻き戻しは発生しないが、
-    // 本トグルでは両キーを 1 回の PUT にまとめ、意図 (有効時はモデル選択なし) を明確にする
-    const nextModel = v ? null : get().selectedModel;
-    set({ enableOrchestration: v, selectedModel: nextModel });
+    // 有効化する際に選択中だったモデルは localStorage へ退避し、無効化時に復元する
+    // (単純に null 化してしまうと切替前のモデルが永久に失われるため — Gate 2 指摘)
+    if (v) {
+      const current = get().selectedModel;
+      if (current) localStorage.setItem(ORCH_MODEL_STASH_KEY, JSON.stringify(current));
+      set({ enableOrchestration: true, selectedModel: null });
+      try {
+        await api.settings.put({ enableOrchestration: 'true', selectedModel: '' });
+      } catch {
+        /* 永続化失敗は無視 */
+      }
+      return;
+    }
+    let restored: { providerID: string; modelID: string } | null = null;
+    try {
+      const raw = localStorage.getItem(ORCH_MODEL_STASH_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { providerID?: string; modelID?: string };
+        if (parsed && typeof parsed.providerID === 'string' && typeof parsed.modelID === 'string') {
+          restored = { providerID: parsed.providerID, modelID: parsed.modelID };
+        }
+      }
+    } catch {
+      /* 退避データ破損時は復元しない */
+    }
+    if (restored) localStorage.removeItem(ORCH_MODEL_STASH_KEY);
+    set({ enableOrchestration: false, selectedModel: restored });
     try {
       await api.settings.put({
-        enableOrchestration: String(v),
-        selectedModel: nextModel ? JSON.stringify(nextModel) : '',
+        enableOrchestration: 'false',
+        selectedModel: restored ? JSON.stringify(restored) : '',
       });
     } catch {
       /* 永続化失敗は無視 */
