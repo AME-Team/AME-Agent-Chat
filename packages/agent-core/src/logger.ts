@@ -35,3 +35,14 @@ export const log = {
   warn: (...args: unknown[]) => write('warn', ...args),
   error: (...args: unknown[]) => write('error', ...args),
 };
+
+/** 循環参照等で JSON.stringify が例外を投げる値を安全に文字列化する (ログ用)。
+ *  Error は JSON.stringify が '{}' を返してしまうため、先に name: message へ変換する */
+export function safeStringify(value: unknown): string {
+  if (value instanceof Error) return `${value.name}: ${value.message}`;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}

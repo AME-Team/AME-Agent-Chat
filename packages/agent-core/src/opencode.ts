@@ -5,7 +5,7 @@
  */
 import { createOpencodeClient, type OpencodeClient } from '@opencode-ai/sdk';
 import { env } from './env.js';
-import { log } from './logger.js';
+import { log, safeStringify } from './logger.js';
 
 let client: OpencodeClient | null = null;
 
@@ -56,7 +56,14 @@ export async function callOpencode<T>(
 ): Promise<OpencodeResult<T>> {
   try {
     const result = await fn();
-    log.debug('opencode sdk ok');
+    if (result.error) {
+      // Issue #60: SDK は 4xx などのビジネスエラーを throw せず { error } で返す。
+      // これをログに残さないと 500 の原因が判らないため、常に詳細を出力する。
+      // 循環参照等で文字列化できない場合は Error の name/message へフォールバック
+      log.warn('opencode sdk returned error', safeStringify(result.error));
+    } else {
+      log.debug('opencode sdk ok');
+    }
     return result;
   } catch (cause) {
     const reason = connectionErrorReason(cause);

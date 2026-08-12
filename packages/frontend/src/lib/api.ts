@@ -34,6 +34,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** ターミナルトークンのキャッシュ (Issue #65)。undefined=未取得、string=取得成功。
+ *  取得失敗時は undefined のままとし、次回呼び出しで再試行する (agent-core 再起動等で回復) */
+let terminalTokenCache: string | undefined;
+async function getTerminalToken(): Promise<string | null> {
+  if (terminalTokenCache !== undefined) return terminalTokenCache;
+  try {
+    const res = await request<{ token: string }>('/api/terminal/token', { method: 'POST' });
+    terminalTokenCache = res.token;
+    return terminalTokenCache;
+  } catch {
+    return null;
+  }
+}
+
 /** OpenCode Session をアプリ向けに整形 */
 export interface AppSession {
   id: string;
@@ -130,6 +144,41 @@ export const api = {
   files: {
     /** @ファイル参照のあいまい検索 (#2 §3.3) */
     search: (q: string) => request<string[]>(`/api/files?q=${encodeURIComponent(q)}`),
+  },
+
+  models: {
+    /** プロバイダー+モデル一覧 (Issue #62: 通常のモデル選択用) */
+    list: () =>
+      request<{
+        providers: Array<{ id: string; name?: string; models?: Record<string, { id?: string }> }>;
+      }>('/api/models'),
+  },
+
+  terminal: {
+    /** サンドボックス内でコマンド実行 (Issue #65)。トークンをヘッダで提示 */
+    exec: async (
+      command: string,
+      attempt = 0,
+    ): Promise<{ command: string; output: unknown; sessionID: string }> => {
+      const token = await getTerminalToken();
+      try {
+        return await request<{ command: string; output: unknown; sessionID: string }>(
+          '/api/terminal/exec',
+          {
+            method: 'POST',
+            body: JSON.stringify({ command }),
+            headers: token ? { 'x-terminal-token': token } : undefined,
+          },
+        );
+      } catch (err) {
+        // トークン失効 (agent-core 再起動等) で 403 なら再取得して 1 回だけリトライ
+        if (err instanceof ApiError && err.status === 403 && attempt === 0) {
+          terminalTokenCache = undefined;
+          return api.terminal.exec(command, 1);
+        }
+        throw err;
+      }
+    },
   },
   cwd: {
     /** カレントディレクトリ + 選択可能なプロジェクト一覧 (#56) */

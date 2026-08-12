@@ -7,6 +7,7 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { ChatView } from './components/ChatView';
 import { MessageInput } from './components/MessageInput';
+import { TerminalView } from './components/TerminalView';
 import { Toasts } from './components/Toasts';
 import { HelpDialog } from './components/HelpDialog';
 import { ApprovalDialog } from './components/ApprovalDialog';
@@ -25,8 +26,10 @@ export function App() {
   const loadSessions = useApp((s) => s.loadSessions);
   const createSession = useApp((s) => s.createSession);
   const loadCurrentDirectory = useApp((s) => s.loadCurrentDirectory);
+  const loadRuntimeSettings = useApp((s) => s.loadRuntimeSettings);
   const cwdSwitchCount = useApp((s) => s.cwdSwitchCount);
   const sidebarCollapsed = useUI((s) => s.sidebarCollapsed);
+  const terminalOpen = useUI((s) => s.terminalOpen);
 
   useEffect(() => {
     // 復元とセッション読込は並行実行する。server 側ミドルウェアが復元を試み、
@@ -35,18 +38,23 @@ export function App() {
     // loadSessions() を再読込して補正する
     void loadCurrentDirectory();
     void loadSessions();
+    void loadRuntimeSettings();
     connectEvents();
     requestNotifyPermission();
     return () => disconnectEvents();
-  }, [loadSessions, loadCurrentDirectory]);
+  }, [loadSessions, loadCurrentDirectory, loadRuntimeSettings]);
 
-  // キーボードショートカット (要件 #2 §9.1, §9.4)
+  // キーボードショートカット (要件 #2 §9.1, §9.4, Issue #65)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // 入力欄ではショートカットを発火させない (IME 確定や ? 入力の誤発火防止)
       const target = e.target as HTMLElement | null;
       const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
+        // Ctrl+J: ターミナルパネル開閉 (Issue #65) — フォーカス有無を問わず発火
+        e.preventDefault();
+        useUI.getState().setTerminalOpen(!useUI.getState().terminalOpen);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         if (!typing) {
           e.preventDefault();
           void createSession().catch(() => {});
@@ -64,9 +72,11 @@ export function App() {
       {/* 起動時は key を変えず (復元で再マウントしない)、ユーザー切替時のみ
           カウンタ変化で Sidebar を再マウントして検索結果等をリセット */}
       <Sidebar key={cwdSwitchCount} collapsed={sidebarCollapsed} />
-      <div className="flex flex-1 flex-col">
+      {/* Issue #64: min-h-0 が無いとチャットエリアの縦スクロールが効かない */}
+      <div className="flex min-h-0 flex-1 flex-col">
         <Header />
         <ChatView />
+        {terminalOpen && <TerminalView />}
         <MessageInput />
       </div>
       <Toasts />

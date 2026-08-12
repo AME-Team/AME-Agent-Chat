@@ -27,6 +27,10 @@ export const env = {
   /** Gatekeeper API (ホスト) — 要件 #1 §2.6 (Phase1 後続)
    *  ※ 要件表の 87880 は TCP 上限超過のため実運用は 58780 */
   gatekeeperUrl: process.env.GATEKEEPER_URL ?? 'http://localhost:58780',
+  /** ターミナル API の共有トークン (Issue #65)。未指定時は起動毎にランダム生成され、
+   *  フロントは /api/terminal/token から取得して exec 時にヘッダで提示する。
+   *  デフォルト空文字の場合はランタイムで randomUUID を生成して利用する */
+  terminalToken: process.env.TERMINAL_TOKEN ?? '',
   /** ログレベル (debug | info | warn | error) — 開発モード (`pnpm dev`) は debug (#55) */
   logLevel,
 } as const;

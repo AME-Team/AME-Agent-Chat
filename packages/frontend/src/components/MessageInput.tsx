@@ -5,9 +5,11 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Paperclip, Send, Square } from 'lucide-react';
+import { CHAT_WIDTH_CLASSES } from '@ame-agent-chat/shared';
 import { useI18n } from '../lib/i18n';
 import { useApp } from '../store/app';
 import { useUI } from '../store/ui';
+import { cn } from '../lib/cn';
 import { CommandPalette } from './CommandPalette';
 import { executeCommand, matchCommands, parseCommand } from '../lib/commands';
 import { api } from '../lib/api';
@@ -66,6 +68,7 @@ export function MessageInput() {
   const sendMessage = useApp((s) => s.sendMessage);
   const abort = useApp((s) => s.abort);
   const currentId = useApp((s) => s.currentId);
+  const chatWidth = useUI((s) => s.chatWidth);
 
   // セッション切替時に下書きを復元 + 履歴位置リセット (要件 #2 §3.1)
   useEffect(() => {
@@ -239,7 +242,12 @@ export function MessageInput() {
   };
 
   return (
-    <div className="relative border-t border-gray-100 px-4 py-4 dark:border-gray-800">
+    <div className="relative shrink-0 px-4 pb-4 pt-3">
+      {/* Issue #61: メインエリアとの境界の線を廃止し、テキストが徐々に消えるグラデーションに置換 */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-10 h-10 bg-gradient-to-t from-white via-white/60 to-transparent dark:from-gray-900 dark:via-gray-900/60 dark:to-transparent"
+      />
       {paletteVisible && (
         <CommandPalette
           matches={matches}
@@ -265,7 +273,7 @@ export function MessageInput() {
       <div
         onDrop={onDrop}
         onDragOver={(e) => e.preventDefault()}
-        className="relative mx-auto max-w-3xl"
+        className={cn('relative mx-auto', CHAT_WIDTH_CLASSES[chatWidth])}
       >
         {files.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">

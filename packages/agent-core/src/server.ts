@@ -17,6 +17,7 @@ import { registerSettingsRoutes } from './routes/settings.js';
 import { registerGitRoutes } from './routes/git.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerCwdRoutes } from './routes/cwd.js';
+import { registerTerminalRoutes } from './routes/terminal.js';
 
 export function createApp(): Hono {
   const app = new Hono();
@@ -64,6 +65,7 @@ export function createApp(): Hono {
   registerGitRoutes(app);
   registerAuthRoutes(app);
   registerCwdRoutes(app);
+  registerTerminalRoutes(app);
 
   app.notFound((c) => c.json({ error: 'Not Found' }, 404));
   app.onError((err, c) => {

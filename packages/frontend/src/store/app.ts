@@ -75,6 +75,18 @@ interface AppState {
   togglePin: (id: string) => void;
   setSortOrder: (order: SessionSortOrder) => void;
 
+  // model selection / orchestration (Issue #62)
+  /** ユーザーが明示選択したモデル (null = opencode 既定 / オーケストレーション) */
+  selectedModel: { providerID: string; modelID: string } | null;
+  /** LLM オーケストレーション有効フラグ (デフォルト OFF) */
+  enableOrchestration: boolean;
+  loadRuntimeSettings: () => Promise<void>;
+  setSelectedModel: (
+    m: { providerID: string; modelID: string } | null,
+    opts?: { persist?: boolean },
+  ) => Promise<void>;
+  setEnableOrchestration: (v: boolean) => Promise<void>;
+
   // messages
   messages: AppMessage[];
   /** プロセス可視化 (#20) — セッション内のツール実行イベント */
@@ -131,6 +143,12 @@ let loadCwdPromise: Promise<void> | null = null;
 
 /** loadCurrentDirectory の世代番号 (背景ポーリングを新規呼び出しで無効化するためのガード) */
 let cwdLoadGeneration = 0;
+
+/** loadRuntimeSettings の再試行タイマー (BFF 未起動時の復旧用 — Issue #62) */
+let settingsRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let settingsRetries = 0;
+const SETTINGS_MAX_RETRIES = 5;
+const SETTINGS_RETRY_DELAY_MS = 4000;
 
 /** 指定 ms 後に abort する signal を返す。AbortSignal.timeout 非対応 (旧 Safari/WebView) は手動フォールバック */
 function timeoutSignal(ms: number): AbortSignal {
@@ -354,6 +372,73 @@ export const useApp = create<AppState>((set, get) => ({
     set({ sortOrder: order });
   },
 
+  selectedModel: null,
+  enableOrchestration: false,
+  loadRuntimeSettings: async () => {
+    try {
+      const s = await api.settings.get();
+      const raw = s.selectedModel;
+      if (raw) {
+        const parsed = JSON.parse(raw) as { providerID?: string; modelID?: string };
+        if (parsed && typeof parsed.providerID === 'string' && typeof parsed.modelID === 'string') {
+          set({ selectedModel: { providerID: parsed.providerID, modelID: parsed.modelID } });
+        }
+      } else {
+        set({ selectedModel: null });
+      }
+      // オーケストレーション有効時は明示モデル選択と排他 (両立させない — Issue #62)
+      const orchestration = s.enableOrchestration === 'true';
+      if (orchestration) set({ selectedModel: null });
+      set({ enableOrchestration: orchestration });
+      if (settingsRetryTimer) {
+        clearTimeout(settingsRetryTimer);
+        settingsRetryTimer = null;
+      }
+      settingsRetries = 0;
+    } catch {
+      // BFF 未起動等で取得失敗時は既定 (null/false) のままとし、起動直後の復旧のため自動再取得。
+      // 進行中の再試行があれば重複スケジュールしない
+      if (settingsRetryTimer) return;
+      settingsRetries += 1;
+      if (settingsRetries < SETTINGS_MAX_RETRIES) {
+        settingsRetryTimer = setTimeout(() => {
+          settingsRetryTimer = null;
+          void get().loadRuntimeSettings();
+        }, SETTINGS_RETRY_DELAY_MS);
+      }
+    }
+  },
+  setSelectedModel: async (m, opts) => {
+    // 明示モデル選択時はオーケストレーションを排他 OFF にし、両キーを 1 PUT で原子更新する
+    // (Header からの連続 PUT による selectedModel 空上書きの競合を防ぐ — Issue #62)
+    const nextOrchestration = m ? false : get().enableOrchestration;
+    set({ selectedModel: m, enableOrchestration: nextOrchestration });
+    if (opts?.persist === false) return;
+    try {
+      await api.settings.put({
+        selectedModel: m ? JSON.stringify(m) : '',
+        enableOrchestration: String(nextOrchestration),
+      });
+    } catch {
+      /* 永続化失敗は無視 (セッション内では有効) */
+    }
+  },
+  setEnableOrchestration: async (v) => {
+    // オーケストレーション有効時は明示モデル選択と排他 (Issue #62)。
+    // Gatekeeper は設定をキー単位でマージ保存するため部分 PUT でも巻き戻しは発生しないが、
+    // 本トグルでは両キーを 1 回の PUT にまとめ、意図 (有効時はモデル選択なし) を明確にする
+    const nextModel = v ? null : get().selectedModel;
+    set({ enableOrchestration: v, selectedModel: nextModel });
+    try {
+      await api.settings.put({
+        enableOrchestration: String(v),
+        selectedModel: nextModel ? JSON.stringify(nextModel) : '',
+      });
+    } catch {
+      /* 永続化失敗は無視 */
+    }
+  },
+
   messages: [],
 
   tools: [],
@@ -438,7 +523,8 @@ export const useApp = create<AppState>((set, get) => ({
         : text,
     };
     set({ messages: [...messages, optimistic], busy: true });
-    await api.messages.send(id, text, undefined, attachments);
+    // 明示選択モデルがあれば送信に含める (無ければオーケストレーション/既定に委ねる — Issue #62)
+    await api.messages.send(id, text, get().selectedModel ?? undefined, attachments);
   },
 
   abort: async () => {
@@ -464,7 +550,7 @@ export const useApp = create<AppState>((set, get) => ({
     // 編集メッセージ以降を切り捨てて新しい内容を送信
     const idx = messages.findIndex((m) => m.id === messageId);
     set((st) => ({ messages: [...st.messages.slice(0, idx), { ...target, text: newText }] }));
-    await api.messages.send(currentId, newText);
+    await api.messages.send(currentId, newText, get().selectedModel ?? undefined);
     // バックエンドと状態を再同期 (revert 不可のケースでも旧メッセージが復活しないように)
     await get().loadMessages(currentId);
   },
