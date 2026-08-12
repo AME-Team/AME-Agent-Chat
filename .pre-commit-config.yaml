@@ -70,7 +70,7 @@ repos:
         entry: python -m ame_ai_review_system.skip_guard
         language: python
         additional_dependencies: &ame-wheel-dep
-          - ame_ai_review_system @ https://github.com/tarminjapan/AME-AI-Review-System/releases/download/v0.2.3/ame_ai_review_system-0.2.3-py3-none-any.whl#sha256=6a3bc0dceeeffed658cb4b10abc2a5fa3b2cd09e556434e25efc2afa8dde9a3c
+          - ame_ai_review_system @ https://github.com/tarminjapan/AME-AI-Review-System/releases/download/v0.2.4/ame_ai_review_system-0.2.4-py3-none-any.whl#sha256=7173ff47a61c1abff9b6090025786a06aca949bb34dfb3e89048bb817395651d
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
