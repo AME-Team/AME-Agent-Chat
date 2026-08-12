@@ -1,0 +1,67 @@
+# AME Agent Chat — Static Analysis CI
+# push (main) と pull_request (PR 更新) 時に型チェック・Lint・フォーマット・docs ビルドを実行する。
+# AME-AI-Review-System の導入物には push/PR トリガーの静的解析は含まれないため、
+# 本リポジトリ用に追加している (Gate 2 の Circuit Breaker は /request-review 時に個別実行される)。
+
+name: CI (Static Analysis)
+
+'on':
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        # pnpm バージョンは package.json の packageManager (pnpm@11.20.0) から解決する (二重管理を回避)
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Node バージョンは .node-version (engines.node >=24 と整合) を単一情報源にする
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # .node-version / package.json engines.node / docker/Dockerfile の FROM メジャー一致を検証する。
+      # Dockerfile は浮動タグでパッチ追随、CI は .node-version で再現性を担保する運用。
+      - name: Verify Node version consistency
+        run: |
+          node_major=$(cut -d. -f1 .node-version)
+          engines_major=$(node -p "require('./package.json').engines.node.match(/[0-9]+/)[0]")
+          from_major=$(sed -n 's/^FROM node:\([0-9]*\).*/\1/p' docker/Dockerfile | head -n1)
+          if [ "$from_major" != "$node_major" ] || [ "$engines_major" != "$node_major" ]; then
+            echo "ERROR: Node メジャー不整合 (from=$from_major engines=$engines_major node-version=$node_major)"
+            exit 1
+          fi
+
+      - name: Type-check
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      # pnpm build は全パッケージ (docs 含む) の build を実行するため、docs はここでビルドされる。
+      # GitHub Pages へのデプロイは別途 docs-deploy.yml が main push 時に担う。
+      - name: Build
+        run: pnpm build

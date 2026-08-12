@@ -6,13 +6,13 @@
 
 name: AI Code Review (Command)
 
-"on":
+'on':
   issue_comment:
     types: [created]
   workflow_dispatch:
     inputs:
       pr_number:
-        description: "レビュー対象 PR 番号（手動実行時）"
+        description: 'レビュー対象 PR 番号（手動実行時）'
         required: true
 
 permissions:

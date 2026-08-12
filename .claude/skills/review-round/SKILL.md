@@ -1,7 +1,6 @@
 ---
 name: review-round
-description:
-  Dual-Gate レビューラウンドを自動化する。Gate 1（pre-commit）と Gate
+description: Dual-Gate レビューラウンドを自動化する。Gate 1（pre-commit）と Gate
   2（PR）の両方のフローを実施する。
 ---
 

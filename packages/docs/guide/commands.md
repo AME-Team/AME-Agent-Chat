@@ -11,8 +11,8 @@
 | `/models`   | —                      | モデル一覧・切替（Effort プリセットと連携）      | 利用可   |
 | `/compact`  | `/summarize`           | セッション履歴を要約圧縮                         | 利用可   |
 | `/init`     | —                      | AGENTS.md の作成・更新                           | 利用可   |
-| `/export` | — | セッションを Markdown / JSON でエクスポート | 利用可 |
-| `/import` | — | エクスポートした JSON からセッションを復元 | 利用可 |
+| `/export`   | —                      | セッションを Markdown / JSON でエクスポート      | 利用可   |
+| `/import`   | —                      | エクスポートした JSON からセッションを復元       | 利用可   |
 | `/share`    | —                      | セッション共有（Output Prompts 連携）            | 近日対応 |
 | `/unshare`  | —                      | 共有解除                                         | 近日対応 |
 | `/connect`  | —                      | プロバイダー追加（認証連携）                     | 利用可   |
