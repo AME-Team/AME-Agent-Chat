@@ -10,8 +10,8 @@
   },
   "scripts": {
     "typecheck": "pnpm -r typecheck",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "dev": "node scripts/dev.mjs",

@@ -38,6 +38,12 @@ pnpm -r --filter <pkg> <script>  # 個別パッケージ実行
 
 **注意**: 変更後は必ず `pnpm typecheck` / `pnpm lint` / `pnpm format:check` を実行して品質を担保すること。
 
+**pre-commit（Gate 1）前提**: Gate 1 は eslint/prettier を `node_modules/.bin` から直接起動するため、コミット前に `pnpm install` 済みであること。未導入時はフックが案内を出して失敗する。
+
+**Node バージョンの単一情報源**: `.node-version`（CI の実行バージョンをパッチ固定）。Node メジャー昇格時は `.node-version` / `package.json` の `engines.node` / `docker/Dockerfile` の `FROM node:*` を同時に更新する（CI が `.node-version` と Dockerfile のメジャー一致を検証）。
+
+**CI（静的解析）**: `.github/workflows/ci.yml` が push(main) / pull_request で `typecheck`・`lint`（eslint `--max-warnings=0`）・`format:check`・`build` を実行する。
+
 ### Docker（Agent Core + OpenCode 同居コンテナ）
 
 ```bash
@@ -73,6 +79,7 @@ Frontend(51730)/Gatekeeper(58780) はホスト起動。コンテナは Agent Cor
 - PR で `/request-review` コメントで AI レビュー実行。
 - 詳細は `.ame-review/`・`.claude/skills/review-round/SKILL.md`。
 - 設定: `.ame-review/config.json`
+- **Python/Shell ソース導入時（S2・要件 #3.3.1）は、`.pre-commit-config.yaml` に ruff/mypy/shellcheck を再導入し、`.github/workflows/ci.yml` に該当ステップを追加すること。**
 
 ## コーディング規約
 

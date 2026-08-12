@@ -11,8 +11,8 @@ Typing `/` in the chat input opens the **command palette**, which you can naviga
 | `/models`   | —                      | List and switch models (ties into Effort presets) | Available   |
 | `/compact`  | `/summarize`           | Summarize and compress session history            | Available   |
 | `/init`     | —                      | Create / update AGENTS.md                         | Available   |
-| `/export` | — | Export the session as Markdown / JSON | Available |
-| `/import` | — | Restore a session from an exported JSON | Available |
+| `/export`   | —                      | Export the session as Markdown / JSON             | Available   |
+| `/import`   | —                      | Restore a session from an exported JSON           | Available   |
 | `/share`    | —                      | Share a session (Output Prompts integration)      | Coming soon |
 | `/unshare`  | —                      | Unshare a session                                 | Coming soon |
 | `/connect`  | —                      | Add a provider (auth integration)                 | Available   |

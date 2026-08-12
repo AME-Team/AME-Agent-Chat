@@ -2,7 +2,12 @@
 # S1 では Node のみ。将来フェーズで Python/C#/Go/C++ を追加 (要件 #3.3.1)。
 # Agent Core (30010) と OpenCode Server (40960) を同一コンテナ内で同居起動 (要件 #1 §2.4)。
 
+# Node メジャーは .node-version と一致させる (浮動タグでパッチ更新に自動追随)。
+# CI (.node-version) は再現性のためパッチ固定、コンテナはセキュリティパッチを自動取得する
 FROM node:24-bookworm-slim
+
+# ビルド時の実際の Node パッチバージョンをログに残す (コンテナと CI の挙動差の切り分け用)
+RUN node -v
 
 # === root 権限でシステム/グローバルツールを導入 ===
 RUN apt-get update \
