@@ -243,7 +243,9 @@ export function MessageInput() {
 
   return (
     <div className="relative shrink-0 px-4 pb-4 pt-3">
-      {/* Issue #61: メインエリアとの境界の線を廃止し、テキストが徐々に消えるグラデーションに置換 */}
+      {/* Issue #61: メインエリアとの境界の線を廃止し、テキストが徐々に消えるグラデーションに置換。
+          from-white / dark:from-gray-900 は App ルートの背景 (bg-white / dark:bg-gray-900) と揃えている。
+          背景色を変更する際はここも同時に更新すること (境界が浮くのを防ぐ) */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 -top-10 h-10 bg-gradient-to-t from-white via-white/60 to-transparent dark:from-gray-900 dark:via-gray-900/60 dark:to-transparent"

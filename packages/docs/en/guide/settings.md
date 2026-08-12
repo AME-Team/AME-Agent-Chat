@@ -81,7 +81,7 @@ Enabling the **"Compress context"** checkbox (default: **off**) summarizes histo
 
 ### Chat width (Issue #63)
 
-The chat area (main window) width can be adjusted from 5 presets. Changes apply immediately and are stored in local storage. For responsive behavior, small screens automatically use full width.
+The chat area (main window) width can be adjusted from 5 presets. Changes apply immediately and are stored in local storage. For responsive behavior, small screens take the maximum width up to the preset's `max-w-*` limit (narrow presets may not reach full width on smaller screens).
 
 | Preset      | Max width             |
 | ----------- | --------------------- |
