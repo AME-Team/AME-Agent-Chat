@@ -206,6 +206,8 @@ async function runShell(
       query,
     }),
   );
+  // Promise.race は入力 Promise 全件を購読するため、タイムアウト後の exec reject でも
+  // unhandledRejection は発生しない (race が内部で処理する)
   let timer: NodeJS.Timeout | undefined;
   try {
     const outcome = await Promise.race([
@@ -249,10 +251,8 @@ async function runShell(
 
 export function registerTerminalRoutes(app: Hono): void {
   // トークン取得 (フロント起動時に 1 回呼ぶ)。POST は同一オリジンでも Origin が付与されるため
-  // ループバック判定を通る。レスポンスは CORS で他オリジンから読めないため、別オリジンの CSRF 起点には使えない
-  // トークン取得 (フロント起動時に 1 回呼ぶ)。exec と同じくループバックオリジンのみ許可。
-  // トークンレスポンスは CORS で他オリジンから読めないため、ループバック上の悪意サイトが
-  // トークンを取得できても実行には利用できない (exec はトークン必須)。
+  // exec と同じループバック判定を通る。レスポンスは CORS で他オリジンから読めないため、
+  // ループバック上の悪意サイトがトークンを取得できても実行には利用できない (exec はトークン必須)。
   // なお global CORS (server.ts) は origin 文字列指定のため、リクエスト Origin が設定値
   // (既定 http://localhost:51730) と一致する場合のみ ACAO を付与する。よって localhost:9999 等の
   // 別ローカルオリジンには ACAO が付かず、レスポンスを読むことができない (Hono cors 実装確認済み)

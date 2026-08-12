@@ -53,10 +53,22 @@ export const useTerminal = create<TerminalState>((set, get) => ({
         entries: [...st.entries, { command: value, output: extractText(res.output) }],
       }));
     } catch (err) {
+      // 詳細はバックエンドのログまたは console.error (ネットワーク層エラー等) に残す。
+      // UI には汎用メッセージ + 短い要約 (バックエンドは汎用文言のみ返すため安全) を表示し、
+      // 原因切り分けを妨げない程度の情報に留める
+      console.error('terminal exec failed', err);
+      const detail = err instanceof Error ? err.message : String(err);
+      // サロゲートペアを分割しないようコードポイント単位で 120 字に切る
+      const chars = Array.from(detail);
+      const brief = chars.length > 120 ? `${chars.slice(0, 120).join('')}…` : detail;
       set((st) => ({
         entries: [
           ...st.entries,
-          { command: value, output: `${tr('terminal.failed')}: ${String(err)}`, error: true },
+          {
+            command: value,
+            output: `${tr('terminal.failed')}${brief ? `: ${brief}` : ''}`,
+            error: true,
+          },
         ],
       }));
     } finally {

@@ -138,8 +138,9 @@ export function Header() {
           value={modelValue}
           onChange={(e) => onModelChange(e.target.value)}
           onFocus={() => {
-            // 未取得 (loaded=false) のままだった場合、ドロップダウン再オープンで再取得する
-            if (!modelsLoaded) void loadModels();
+            // 未取得 (loaded=false) のままだった場合、ドロップダウン再オープンで再取得する。
+            // force=true で failed (再試行上限到達) を解除し、手動回復経路を維持する
+            if (!modelsLoaded) void loadModels(true);
           }}
           disabled={enableOrchestration}
           aria-label={t('header.model')}
