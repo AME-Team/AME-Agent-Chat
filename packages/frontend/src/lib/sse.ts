@@ -28,6 +28,8 @@ export function connectEvents(): void {
 
   const handle = (type: string) => (ev: MessageEvent) => {
     lastActivity = Date.now();
+    // ping は生存判定専用: 状態更新 (apply) に流さない
+    if (type === 'ping') return;
     try {
       if (type === 'permission.updated') {
         const p = JSON.parse(ev.data) as PendingPermission & {

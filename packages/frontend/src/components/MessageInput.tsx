@@ -75,6 +75,8 @@ export function MessageInput() {
   const prevCreateSeq = useRef(sessionCreateSeq);
   useEffect(() => {
     const ta = taRef.current;
+    // 履歴ナビ位置はセッション切替の度にリセットする
+    upIdx = -1;
     // createSession の非同期解決で currentId が切り替わった直後に入力を始めていた場合は
     // 下書き復元で入力中のテキストを上書きしない。selectSession (既存セッション切替) は
     // sessionCreateSeq が変わらないため常に復元する (決定的判定 — 時間ヒューリスティック不使用)
@@ -82,7 +84,6 @@ export function MessageInput() {
     prevCreateSeq.current = sessionCreateSeq;
     if (justCreated && ta && document.activeElement === ta && text.trim()) return;
     setText(currentId ? loadDraft(currentId) : '');
-    upIdx = -1;
   }, [currentId, sessionCreateSeq]);
 
   // 下書きをセッション単位で永続化 (履歴ナビ中の置換は保存しない)
