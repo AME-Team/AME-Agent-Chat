@@ -64,6 +64,9 @@ export function registerEventRoutes(app: Hono): void {
       }, 15000);
 
       try {
+        // SDK の Options は Config extends Omit<RequestInit, ...> を継承して signal を受け付ける
+        // (serverSentEvents は options.signal を fetch へ渡し、abort でストリームを終了する)。
+        // クライアント切断時に購読を解放してリークを防ぐ
         const result = await api.event.subscribe({ signal: controller.signal });
         for await (const event of result.stream) {
           if (aborted) break;

@@ -572,7 +572,9 @@ export const useApp = create<AppState>((set, get) => ({
     }
     // SSE イベント欠落時 (agent-core 再起動等で EventSource が黙って死ぬケース) の
     // フォールバック: この送信のアシスタント応答が表示されていない場合のみサーバから再同期する。
-    // 再同期はベストエフォート (タイムアウト付き) で、busy の解放を妨げない
+    // 再同期はベストエフォート (タイムアウト付き) で、busy の解放を妨げない。
+    // ※ SSE が単に遅延している場合は後続の message.updated / message.part.updated が
+    //   applySSE の id ベース upsert で同じメッセージに適用されるため重複は発生しない
     const hasNewAssistant = get().messages.some(
       (m) => m.role === 'assistant' && !preMessageIds.has(m.id),
     );
