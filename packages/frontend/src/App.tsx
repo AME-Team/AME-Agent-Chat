@@ -53,7 +53,7 @@ export function App() {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
         // Ctrl+J: ターミナルパネル開閉 (Issue #65) — フォーカス有無を問わず発火
         e.preventDefault();
-        useUI.getState().setTerminalOpen(!useUI.getState().terminalOpen);
+        useUI.getState().toggleTerminal();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         if (!typing) {
           e.preventDefault();

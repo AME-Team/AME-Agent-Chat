@@ -70,6 +70,7 @@ export function MessageInput() {
   const currentId = useApp((s) => s.currentId);
   const sessionCreateSeq = useApp((s) => s.sessionCreateSeq);
   const chatWidth = useUI((s) => s.chatWidth);
+  const terminalOpen = useUI((s) => s.terminalOpen);
 
   // セッション切替時に下書きを復元 + 履歴位置リセット (要件 #2 §3.1)
   const prevCreateSeq = useRef(sessionCreateSeq);
@@ -255,11 +256,15 @@ export function MessageInput() {
     <div className="relative shrink-0 px-4 pb-4 pt-3">
       {/* Issue #61: メインエリアとの境界の線を廃止し、テキストが徐々に消えるグラデーションに置換。
           from-white / dark:from-gray-900 は App ルートの背景 (bg-white / dark:bg-gray-900) と揃えている。
-          背景色を変更する際はここも同時に更新すること (境界が浮くのを防ぐ) */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 -top-10 h-10 bg-gradient-to-t from-white via-white/60 to-transparent dark:from-gray-900 dark:via-gray-900/60 dark:to-transparent"
-      />
+          背景色を変更する際はここも同時に更新すること (境界が浮くのを防ぐ)。
+          ※ ターミナル展開中は真上がターミナル (bg-gray-950) になるため、白グラデーションが
+          ターミナル下辺に被るのを防ぐため非表示にする (Issue #65) */}
+      {!terminalOpen && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -top-10 h-10 bg-gradient-to-t from-white via-white/60 to-transparent dark:from-gray-900 dark:via-gray-900/60 dark:to-transparent"
+        />
+      )}
       {paletteVisible && (
         <CommandPalette
           matches={matches}

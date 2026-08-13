@@ -11,6 +11,7 @@ import {
   PanelLeft,
   Settings,
   ShieldCheck,
+  SquareTerminal,
   Sun,
 } from 'lucide-react';
 import { BarChart3 } from 'lucide-react';
@@ -52,6 +53,8 @@ export function Header() {
   const setCwdOpen = useUI((s) => s.setCwdOpen);
   const sidebarCollapsed = useUI((s) => s.sidebarCollapsed);
   const toggleSidebar = useUI((s) => s.toggleSidebar);
+  const terminalOpen = useUI((s) => s.terminalOpen);
+  const toggleTerminal = useUI((s) => s.toggleTerminal);
   const currentDirectory = useApp((s) => s.currentDirectory);
   const cwdLoading = useApp((s) => s.cwdLoading);
   const selectedModel = useApp((s) => s.selectedModel);
@@ -188,6 +191,22 @@ export function Header() {
           className="flex size-8 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800"
         >
           <ThemeIcon className="size-4" />
+        </button>
+        {/* ターミナルパネル開閉 (Issue #65) — クリックでも Ctrl+J と同じ動作 */}
+        <button
+          type="button"
+          onClick={toggleTerminal}
+          aria-label={t('header.terminal')}
+          aria-pressed={terminalOpen}
+          title={t('header.terminal')}
+          className={cn(
+            'flex size-8 items-center justify-center rounded-md transition-colors duration-150',
+            terminalOpen
+              ? 'bg-primary/10 text-primary'
+              : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800',
+          )}
+        >
+          <SquareTerminal className="size-4" />
         </button>
         <select
           value={locale}
