@@ -131,6 +131,19 @@ function partsToReasoning(parts: OCPart[] | undefined): string {
     .join('');
 }
 
+/** OpenCode のメッセージ一覧エントリをアプリ表示用 AppMessage へ変換する */
+function entriesToMessages(entries: OCMessageEntry[]): AppMessage[] {
+  return entries.map((e) => ({
+    id: e.info.id,
+    role: e.info.role,
+    text: partsToText(e.parts),
+    reasoning: partsToReasoning(e.parts) || undefined,
+    parentID: e.info.parentID,
+    providerID: e.info.providerID,
+    modelID: e.info.modelID,
+  }));
+}
+
 /** OpenCode が通知した user メッセージ ID (楽観的表示と二重表示を防ぐ) */
 const knownUserIds = new Set<string>();
 
@@ -161,6 +174,37 @@ function timeoutSignal(ms: number): AbortSignal {
   const controller = new AbortController();
   setTimeout(() => controller.abort(), ms);
   return controller.signal;
+}
+
+/** サーバ状態への再同期のタイムアウト (SSE 欠落時・送信失敗時のフォールバック共通) */
+const RESYNC_TIMEOUT_MS = 10_000;
+
+/**
+ * サーバの実メッセージで再同期する (タイムアウト付きベストエフォート)。
+ * loadMessages と異なり、送信途中の楽観的メッセージ (local-*) は保持する。
+ * これによりタイムアウト後の遅延完了でも、その間に追加された新しい楽観的メッセージを
+ * 消さない (再同期と並行送信の競合対策)。
+ */
+async function resyncMessages(id: string): Promise<void> {
+  await Promise.race([
+    (async () => {
+      try {
+        const entries = (await api.messages.list(id)) as OCMessageEntry[];
+        const serverMessages = entriesToMessages(entries);
+        useApp.setState((st) => {
+          // タイムアウト後に完了した場合でも、セッション切替後は適用しない (stale ガード)
+          if (st.currentId !== id) return {};
+          return {
+            messages: [...serverMessages, ...st.messages.filter((m) => m.id.startsWith('local-'))],
+            reachable: true,
+          };
+        });
+      } catch {
+        /* 再同期はベストエフォート */
+      }
+    })(),
+    new Promise((resolve) => setTimeout(resolve, RESYNC_TIMEOUT_MS)),
+  ]);
 }
 
 export const useApp = create<AppState>((set, get) => ({
@@ -481,16 +525,7 @@ export const useApp = create<AppState>((set, get) => ({
   loadMessages: async (id) => {
     try {
       const entries = (await api.messages.list(id)) as OCMessageEntry[];
-      const messages: AppMessage[] = entries.map((e) => ({
-        id: e.info.id,
-        role: e.info.role,
-        text: partsToText(e.parts),
-        reasoning: partsToReasoning(e.parts) || undefined,
-        parentID: e.info.parentID,
-        providerID: e.info.providerID,
-        modelID: e.info.modelID,
-      }));
-      set({ messages, reachable: true });
+      set({ messages: entriesToMessages(entries), reachable: true });
     } catch {
       set({ messages: [] });
     }
@@ -564,10 +599,35 @@ export const useApp = create<AppState>((set, get) => ({
     try {
       await api.messages.send(id, text, get().selectedModel ?? undefined, attachments);
     } catch (e) {
-      // send 自体の失敗のみエラーとして扱う (再同期失敗と混同しない)
-      const detail = e instanceof Error ? e.message : String(e);
-      useUI.getState().pushToast(`${tr('chat.sendFailed')}: ${detail}`, 'error');
-      set({ busy: false });
+      // send 自体の失敗のみエラーとして扱う (再同期失敗と混同しない)。
+      // ここに到達する時点で optimistic は必ず生成済み (上記で try より前に生成。
+      // セッション作成失敗はさらに手前で return するため到達しない)
+      // サーバ側に永続化済みの曖昧な失敗 (ネットワーク切断・5xx・408/429) では再同期を試みる。
+      // 決定的な失敗 (400-499 のうち 408/429 を除く) は受付前に拒否されるため永続化されて
+      // おらず再同期は不要。再同期完了まで busy を維持して並行送信との競合を防ぐ
+      // (成功パスと同じ順序: resync → busy 解除)
+      const status = e instanceof ApiError ? e.status : 0;
+      const isDeterministic = status >= 400 && status < 500 && status !== 408 && status !== 429;
+      // 再同期で「この送信」のサーバメッセージが新規に増えたかを判定するための事前 ID 集合。
+      // 過去に同一テキストを送信済みでも、事前 ID 集合に含まれるため誤マッチしない
+      const preResyncIds = new Set(get().messages.map((m) => m.id));
+      if (!isDeterministic) {
+        await resyncMessages(id);
+      }
+      // 再同期で今回の送信がサーバ側に永続化された (local-* 以外の新規 user メッセージ) 場合は
+      // 失敗トーストを出さない (重複送信を誘発しないため)
+      const restored = get().messages.some(
+        (m) =>
+          m.role === 'user' &&
+          !m.id.startsWith('local-') &&
+          !preResyncIds.has(m.id) &&
+          m.text === text,
+      );
+      if (!restored) {
+        const detail = e instanceof Error ? e.message : String(e);
+        useUI.getState().pushToast(`${tr('chat.sendFailed')}: ${detail}`, 'error');
+      }
+      set((st) => ({ messages: st.messages.filter((m) => m.id !== optimistic.id), busy: false }));
       return;
     }
     // SSE イベント欠落時 (agent-core 再起動等で EventSource が黙って死ぬケース) の
@@ -579,12 +639,9 @@ export const useApp = create<AppState>((set, get) => ({
       (m) => m.role === 'assistant' && !preMessageIds.has(m.id),
     );
     if (!hasNewAssistant) {
-      await Promise.race([
-        get()
-          .loadMessages(id)
-          .catch(() => {}),
-        new Promise((resolve) => setTimeout(resolve, 10_000)),
-      ]);
+      // resyncMessages はサーバの実メッセージで置換しつつ、送信途中の楽観的メッセージ
+      // (local-* のクライアント ID) は保持する
+      await resyncMessages(id);
     }
     // busy はサーバ応答の生成完了後に解除する (api.messages.send は応答完了までブロックする)
     set({ busy: false });

@@ -26,6 +26,7 @@ pnpm lint               # ESLint（フラット設定）
 pnpm lint:fix
 pnpm format             # Prettier 整形
 pnpm format:check
+pnpm test               # ユニットテスト（agent-core / frontend）
 pnpm dev                # opencode serve 自動起動 + 全パッケージ並列 dev 起動
 pnpm build              # 全パッケージビルド
 pnpm start              # ワンコマンド起動（Docker + Gatekeeper + Frontend + ブラウザ）
@@ -80,6 +81,14 @@ Frontend(51730)/Gatekeeper(58780) はホスト起動。コンテナは Agent Cor
 - 詳細は `.ame-review/`・`.claude/skills/review-round/SKILL.md`。
 - 設定: `.ame-review/config.json`
 - **Python/Shell ソース導入時（S2・要件 #3.3.1）は、`.pre-commit-config.yaml` に ruff/mypy/shellcheck を再導入し、`.github/workflows/ci.yml` に該当ステップを追加すること。**
+
+## テスト基盤
+
+- `pnpm test` でユニットテスト実行（agent-core / frontend）。
+- **agent-core**: 素の `node:test` + `.mjs`（SDK を変換不要で直接検証）。
+- **frontend**: `tsx --test "tests/*.test.ts"`（store 等の TS + ブラウザ前提モジュールを TS ローダーで実行）。
+  - Node には localStorage が無いため、store を import するテストは `tests/polyfill-localStorage.ts` を先に import する。
+- テスト追加時は lint（`eslint src tests`）と CI（`.github/workflows/ci.yml` の Test ステップ）に含まれることを確認する。
 
 ## コーディング規約
 

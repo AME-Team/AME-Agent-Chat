@@ -61,6 +61,11 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
+      # ユニットテスト (agent-core: SDK event.subscribe の AbortSignal 検証 / frontend: store の send 失敗パス)。
+      # root の test スクリプト (AGENTS.md 記載) と同一コマンド。
+      - name: Test
+        run: pnpm test
+
       # pnpm build は全パッケージ (docs 含む) の build を実行するため、docs はここでビルドされる。
       # GitHub Pages へのデプロイは別途 docs-deploy.yml が main push 時に担う。
       - name: Build
