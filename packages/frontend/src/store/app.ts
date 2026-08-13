@@ -62,6 +62,8 @@ interface AppState {
   // sessions
   sessions: AppSession[];
   currentId: string | null;
+  /** createSession が currentId を切り替えた世代 (下書き復元の競合対策用・決定的な判定に使う) */
+  sessionCreateSeq: number;
   /** ピン留めしたセッション ID (localStorage 永続化) — #2 §2.3 */
   pinned: string[];
   /** 並び替え基準 (更新順/作成順/名前順) — #2 §2.3 */
@@ -295,6 +297,7 @@ export const useApp = create<AppState>((set, get) => ({
 
   sessions: [],
   currentId: null,
+  sessionCreateSeq: 0,
   pinned: JSON.parse(localStorage.getItem('pinned') ?? '[]') as string[],
   sortOrder: (localStorage.getItem('sortOrder') as SessionSortOrder) ?? 'updated',
 
@@ -312,7 +315,13 @@ export const useApp = create<AppState>((set, get) => ({
     try {
       const s = await api.sessions.create();
       lastCreatedId = s.id;
-      set((st) => ({ sessions: [s, ...st.sessions], currentId: s.id, messages: [], tools: [] }));
+      set((st) => ({
+        sessions: [s, ...st.sessions],
+        currentId: s.id,
+        messages: [],
+        tools: [],
+        sessionCreateSeq: st.sessionCreateSeq + 1,
+      }));
       return s.id;
     } catch (e) {
       // 未到達 (Agent Core への接続断: status 0 / OpenCode Server 未起動: 503) のみ
@@ -550,7 +559,33 @@ export const useApp = create<AppState>((set, get) => ({
     };
     set({ messages: [...messages, optimistic], busy: true });
     // 明示選択モデルがあれば送信に含める (無ければオーケストレーション/既定に委ねる — Issue #62)
-    await api.messages.send(id, text, get().selectedModel ?? undefined, attachments);
+    // この送信前のメッセージ ID 集合で「SSE 経由で応答が届いたか」を判定する
+    const preMessageIds = new Set(messages.map((m) => m.id));
+    try {
+      await api.messages.send(id, text, get().selectedModel ?? undefined, attachments);
+    } catch (e) {
+      // send 自体の失敗のみエラーとして扱う (再同期失敗と混同しない)
+      const detail = e instanceof Error ? e.message : String(e);
+      useUI.getState().pushToast(`${tr('chat.sendFailed')}: ${detail}`, 'error');
+      set({ busy: false });
+      return;
+    }
+    // SSE イベント欠落時 (agent-core 再起動等で EventSource が黙って死ぬケース) の
+    // フォールバック: この送信のアシスタント応答が表示されていない場合のみサーバから再同期する。
+    // 再同期はベストエフォート (タイムアウト付き) で、busy の解放を妨げない
+    const hasNewAssistant = get().messages.some(
+      (m) => m.role === 'assistant' && !preMessageIds.has(m.id),
+    );
+    if (!hasNewAssistant) {
+      await Promise.race([
+        get()
+          .loadMessages(id)
+          .catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, 10_000)),
+      ]);
+    }
+    // busy はサーバ応答の生成完了後に解除する (api.messages.send は応答完了までブロックする)
+    set({ busy: false });
   },
 
   abort: async () => {
