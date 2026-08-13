@@ -11,14 +11,25 @@ import { tr } from './i18n';
 
 let source: EventSource | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+/** 最終受信時刻。Vite プロキシはバックエンド切断時に接続を閉じないため、
+ *  EventSource の onerror が発火せず「死んだ接続」を検知できないことがある
+ *  (agent-core 再起動時など)。ハートビート (ping 15s) の停滞で自己回復する。 */
+let lastActivity = 0;
+let watchdogTimer: ReturnType<typeof setInterval> | null = null;
+/** 何も受信しなければ再接続する閾値 (ping 間隔 15s × 3 + 余裕) */
+const WATCHDOG_STALE_MS = 45_000;
 
 export function connectEvents(): void {
   if (source) return;
+  lastActivity = Date.now();
   source = new EventSource('/api/events');
 
   const apply = useApp.getState().applySSE;
 
   const handle = (type: string) => (ev: MessageEvent) => {
+    lastActivity = Date.now();
+    // ping は生存判定専用: 状態更新 (apply) に流さない
+    if (type === 'ping') return;
     try {
       if (type === 'permission.updated') {
         const p = JSON.parse(ev.data) as PendingPermission & {
@@ -53,6 +64,8 @@ export function connectEvents(): void {
     }
   };
 
+  // 'ping' は agent-core が 15 秒毎に送るキープアライブ (data: タイムスタンプ)。
+  // 受信時刻を lastActivity へ反映してウォッチドッグの生存判定に使う
   for (const type of [
     'message.updated',
     'message.part.updated',
@@ -62,6 +75,7 @@ export function connectEvents(): void {
     'session.updated',
     'session.created',
     'session.deleted',
+    'ping',
     'error',
   ]) {
     source.addEventListener(type, handle(type) as EventListener);
@@ -71,12 +85,25 @@ export function connectEvents(): void {
     disconnectEvents();
     reconnectTimer = setTimeout(connectEvents, 3000);
   };
+
+  // 死んだ接続の検知: 一定時間イベント (ping 含む) が届かなければ再接続する
+  if (watchdogTimer) clearInterval(watchdogTimer);
+  watchdogTimer = setInterval(() => {
+    if (source && Date.now() - lastActivity > WATCHDOG_STALE_MS) {
+      disconnectEvents();
+      reconnectTimer = setTimeout(connectEvents, 3000);
+    }
+  }, 10_000);
 }
 
 export function disconnectEvents(): void {
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
+  }
+  if (watchdogTimer) {
+    clearInterval(watchdogTimer);
+    watchdogTimer = null;
   }
   source?.close();
   source = null;

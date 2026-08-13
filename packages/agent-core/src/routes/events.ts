@@ -45,11 +45,18 @@ function recordUsage(
 export function registerEventRoutes(app: Hono): void {
   const api = getOpencodeClient();
 
-  app.get('/api/events', (c) =>
-    streamSSE(c, async (stream) => {
+  app.get('/api/events', (c) => {
+    // クライアント切断時に OpenCode 側の購読も解放する (SSE リーク防止)。
+    // リークした購読はイベントを消費し続けるため、接続数が増えると
+    // 新規購読の開始が遅延し得る
+    const controller = new AbortController();
+    c.req.raw.signal.addEventListener('abort', () => controller.abort());
+
+    return streamSSE(c, async (stream) => {
       let aborted = false;
       stream.onAbort(() => {
         aborted = true;
+        controller.abort();
       });
 
       const heartbeat = setInterval(() => {
@@ -57,7 +64,10 @@ export function registerEventRoutes(app: Hono): void {
       }, 15000);
 
       try {
-        const result = await api.event.subscribe();
+        // SDK の Options は Config extends Omit<RequestInit, ...> を継承して signal を受け付ける
+        // (serverSentEvents は options.signal を fetch へ渡し、abort でストリームを終了する)。
+        // クライアント切断時に購読を解放してリークを防ぐ
+        const result = await api.event.subscribe({ signal: controller.signal });
         for await (const event of result.stream) {
           if (aborted) break;
           let data: unknown = event.properties;
@@ -89,9 +99,16 @@ export function registerEventRoutes(app: Hono): void {
             }
           }
 
+          // 単一イベントの異常 (undefined properties / 直列化失敗) で中継全体が死なないようにする
+          let payload: string;
+          try {
+            payload = JSON.stringify(data ?? {});
+          } catch {
+            payload = '{}';
+          }
           await stream.writeSSE({
             event: event.type,
-            data: JSON.stringify(data),
+            data: payload,
           });
         }
       } catch {
@@ -104,6 +121,6 @@ export function registerEventRoutes(app: Hono): void {
       } finally {
         clearInterval(heartbeat);
       }
-    }),
-  );
+    });
+  });
 }

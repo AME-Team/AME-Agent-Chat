@@ -68,13 +68,23 @@ export function MessageInput() {
   const sendMessage = useApp((s) => s.sendMessage);
   const abort = useApp((s) => s.abort);
   const currentId = useApp((s) => s.currentId);
+  const sessionCreateSeq = useApp((s) => s.sessionCreateSeq);
   const chatWidth = useUI((s) => s.chatWidth);
 
   // セッション切替時に下書きを復元 + 履歴位置リセット (要件 #2 §3.1)
+  const prevCreateSeq = useRef(sessionCreateSeq);
   useEffect(() => {
-    setText(currentId ? loadDraft(currentId) : '');
+    const ta = taRef.current;
+    // 履歴ナビ位置はセッション切替の度にリセットする
     upIdx = -1;
-  }, [currentId]);
+    // createSession の非同期解決で currentId が切り替わった直後に入力を始めていた場合は
+    // 下書き復元で入力中のテキストを上書きしない。selectSession (既存セッション切替) は
+    // sessionCreateSeq が変わらないため常に復元する (決定的判定 — 時間ヒューリスティック不使用)
+    const justCreated = prevCreateSeq.current !== sessionCreateSeq;
+    prevCreateSeq.current = sessionCreateSeq;
+    if (justCreated && ta && document.activeElement === ta && text.trim()) return;
+    setText(currentId ? loadDraft(currentId) : '');
+  }, [currentId, sessionCreateSeq]);
 
   // 下書きをセッション単位で永続化 (履歴ナビ中の置換は保存しない)
   useEffect(() => {
