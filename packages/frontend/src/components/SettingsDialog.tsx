@@ -7,6 +7,7 @@ import { Download, X } from 'lucide-react';
 import {
   CHAT_WIDTH_OPTIONS,
   EFFORT_PRESET_LABELS,
+  LOG_DOWNLOAD_ERROR_CODES,
   REASONING_EFFORT_LABELS,
   type ChatWidth,
   type EffortPreset,
@@ -92,7 +93,7 @@ export function ModelSettingsDialog() {
         err.status === 403 &&
         err.body &&
         typeof err.body === 'object' &&
-        (err.body as { code?: string }).code === 'log_api_disabled';
+        (err.body as { code?: string }).code === LOG_DOWNLOAD_ERROR_CODES.DISABLED;
       pushToast(
         isDisabled ? t('settings.logsDisabled') : t('settings.logsDownloadFailed'),
         'error',

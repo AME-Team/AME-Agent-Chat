@@ -11,6 +11,7 @@
 import { closeSync, existsSync, openSync, readSync, statSync } from 'node:fs';
 import { basename } from 'node:path';
 import type { Hono } from 'hono';
+import { LOG_DOWNLOAD_ERROR_CODES } from '@ame-agent-chat/shared';
 import { env } from '../env.js';
 import { log } from '../logger.js';
 import { isOriginAllowed, isTerminalTokenValid, TERMINAL_TOKEN_HEADER } from './terminal.js';
@@ -18,14 +19,6 @@ import { isOriginAllowed, isTerminalTokenValid, TERMINAL_TOKEN_HEADER } from './
 /** ダウンロード時に読み込むログの上限 (bytes)。ローテーション失敗で肥大化しても
  *  プロセスへ過大なメモリを載せないよう末尾側を上限分だけ返す (Issue #73) */
 const LOG_READ_LIMIT = 10 * 1024 * 1024;
-
-/** エラー本文は表示用の自由な文言のため、フロントは機械可読な code で判定する (Issue #73) */
-export const LOG_DOWNLOAD_ERROR_CODES = {
-  DISABLED: 'log_api_disabled',
-  ORIGIN_NOT_ALLOWED: 'origin_not_allowed',
-  INVALID_TOKEN: 'invalid_token',
-  NOT_FOUND: 'log_not_found',
-} as const;
 
 /** ファイル末尾から最大 limit bytes を読み込む (存在しない世代はスキップ)。
  *  切詰め時は行境界へ整列し、半行・文字化け (マルチバイト途中) を避ける。

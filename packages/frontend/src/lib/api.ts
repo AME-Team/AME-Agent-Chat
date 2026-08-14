@@ -3,6 +3,7 @@
  *
  * 開発時は Vite プロキシで /api -> http://localhost:30010 へ中継 (vite.config.ts)。
  */
+import { LOG_DOWNLOAD_ERROR_CODES } from '@ame-agent-chat/shared';
 
 /** API エラー (HTTP ステータス + レスポンス本文を保持) */
 export class ApiError extends Error {
@@ -270,7 +271,7 @@ export const api = {
           err.status === 403 &&
           err.body &&
           typeof err.body === 'object' &&
-          (err.body as { code?: string }).code === 'invalid_token';
+          (err.body as { code?: string }).code === LOG_DOWNLOAD_ERROR_CODES.INVALID_TOKEN;
         if (isInvalidToken && attempt === 0) {
           terminalTokenCache = undefined;
           return api.logs.download(1);
