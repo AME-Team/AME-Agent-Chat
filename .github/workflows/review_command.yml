@@ -1,7 +1,7 @@
 ---
 # AME AI Review System — PR レビュー呼び出しラッパ (配布先用)。
-# `ame-ai-reviewer init` で生成される。v0.2.4 はリリースタグ (例: v1.0.0) に置換される。
-# 更新は v0.2.4 の差し替えのみ。本体は reusable workflow 側を参照する。
+# `ame-ai-reviewer init` で生成される。v0.2.5 はリリースタグ (例: v1.0.0) に置換される。
+# 更新は v0.2.5 の差し替えのみ。本体は reusable workflow 側を参照する。
 # Issue コメントでは発火しない。secrets 登録のエンジン情報 (Issue #40) も引き継ぐ。
 
 name: AI Code Review (Command)
@@ -28,9 +28,11 @@ concurrency:
 jobs:
   review:
     # コマンド判定の単一情報源は reusable workflow の is-review-command パーサー
-    # (AME-Team/AME-AI-Review-System/.github/workflows/review-command.yml@v0.2.4)。
+    # (AME-Team/AME-AI-Review-System/.github/workflows/review-command.yml@v0.2.5)。
     # v0.2.3 では上流の完全一致条件から意図的に先頭一致方式へ逸脱していたが、v0.2.4 で
     # 上流が同方式 (startsWith('/request-review')) に追従したため、現在は上流と同期している。
+    # v0.2.5 でも is-review-command パーサーは同一実装 (先頭行の完全一致 or " " 区切り) で
+    # 変更がないことを確認済み (ame_ai_review_system/review_config.py is_review_command)。
     # 同パーサーは本文の先頭行を取得して完全一致 or " " 区切りを判定するため、
     # ここでは先頭一致のみで発火させ誤判定はパーサー側で弾く。
     # "/request-review\n<理由>" のような改行区切り本文でも発火できるように
@@ -42,13 +44,13 @@ jobs:
        (startsWith(github.event.comment.body, '/request-review') ||
         github.event.comment.body == '/review' ||
         startsWith(github.event.comment.body, '/review ')))
-    uses: AME-Team/AME-AI-Review-System/.github/workflows/review-command.yml@v0.2.4
+    uses: AME-Team/AME-AI-Review-System/.github/workflows/review-command.yml@v0.2.5
     with:
       pr_number: ${{ inputs.pr_number || github.event.issue.number }}
       # Issue #71: workflow_dispatch 時は github.event.comment が無く command が空になる。
       # 空文字は || で /request-review へフォールバックし、手動実行でも判定を通す。
       command: ${{ github.event.comment.body || '/request-review' }}
-      system_ref: v0.2.4
+      system_ref: v0.2.5
       review_engine: ${{ vars.REVIEW_ENGINE || '' }}
       review_model: ${{ vars.REVIEW_MODEL || '' }}
       reply_model: ${{ vars.REPLY_MODEL || '' }}
