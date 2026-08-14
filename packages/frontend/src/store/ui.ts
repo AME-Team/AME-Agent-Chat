@@ -53,6 +53,7 @@ interface UIState {
   setCwdOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setTerminalOpen: (open: boolean) => void;
+  toggleTerminal: () => void;
   setChatWidth: (width: ChatWidth) => void;
   setPreview: (p: UIState['preview']) => void;
   toggleThinking: () => void;
@@ -101,6 +102,12 @@ export const useUI = create<UIState>((set, get) => ({
   setTerminalOpen: (open) => {
     localStorage.setItem('terminalOpen', String(open));
     set({ terminalOpen: open });
+  },
+  toggleTerminal: () => {
+    // updater 内で副作用を起こさない (StrictMode 二重実行対策) — toggleSidebar と同型
+    const next = !get().terminalOpen;
+    localStorage.setItem('terminalOpen', String(next));
+    set({ terminalOpen: next });
   },
   setChatWidth: (width) => {
     localStorage.setItem('chatWidth', width);

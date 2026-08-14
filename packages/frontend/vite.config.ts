@@ -53,6 +53,10 @@ export default defineConfig({
   server: {
     port: 51730,
     strictPort: true,
+    // 配信ドメイン (ame-agent-chat.tamtarminworldjapan.win) 経由で dev サーバへアクセスするため、
+    // Vite の host ガード (DNS リバインディング対策) を通過できるよう許可リストへ追加する。
+    // ドメイン変更時はここも同時に更新すること (更新しないとアクセスが 403 で遮断される)。
+    allowedHosts: ['ame-agent-chat.tamtarminworldjapan.win'],
     proxy: {
       '/api': {
         target: 'http://localhost:30010',
