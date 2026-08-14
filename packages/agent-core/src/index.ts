@@ -16,6 +16,7 @@ serve({ fetch: app.fetch, port: env.port, hostname: env.host }, async (info) => 
   await initCurrentDirectory();
   const opencode = await pingOpencode();
   log.info(`listening on http://${env.host}:${info.port} (log level: ${env.logLevel})`);
+  log.info(`log file: ${env.logFile}`);
   log.info(
     `OpenCode Server (${env.opencodeBaseUrl}): ${opencode ? 'reachable' : 'unreachable — \`opencode serve\` を起動してください'}`,
   );

@@ -12,13 +12,16 @@
 
 ## Environment variables
 
-| Variable            | Default                  | Description         |
-| ------------------- | ------------------------ | ------------------- |
-| `PORT`              | `30010`                  | Listen port         |
-| `HOST`              | `0.0.0.0`                | Bind address        |
-| `OPENCODE_BASE_URL` | `http://localhost:40960` | OpenCode Server URL |
-| `CORS_ORIGIN`       | `http://localhost:51730` | Allowed origin      |
-| `GATEKEEPER_URL`    | `http://localhost:58780` | Gatekeeper URL      |
+| Variable            | Default                  | Description                                     |
+| ------------------- | ------------------------ | ----------------------------------------------- |
+| `PORT`              | `30010`                  | Listen port                                     |
+| `HOST`              | `0.0.0.0`                | Bind address                                    |
+| `OPENCODE_BASE_URL` | `http://localhost:40960` | OpenCode Server URL                             |
+| `CORS_ORIGIN`       | `http://localhost:51730` | Allowed origin                                  |
+| `GATEKEEPER_URL`    | `http://localhost:58780` | Gatekeeper URL                                  |
+| `LOG_FILE`          | OS temp directory        | Log file output path (Issue #73)                |
+| `LOG_MAX_SIZE`      | `1048576` (1MB)          | Rotation threshold (bytes) (Issue #73)          |
+| `LOG_API_ENABLED`   | `true`                   | Enable/disable `/api/logs/download` (Issue #73) |
 
 ## LLM router
 
@@ -47,6 +50,13 @@ See [API Reference](/en/reference/api) for full specifications.
 | `/api/files`                 | File search for `@` references                          |
 | `/api/ogp`                   | Link previews (with SSRF protection)                    |
 | `/api/auth`                  | Provider authentication                                 |
+| `/api/logs/download`         | Log download (Issue #73)                                |
+
+## Logging (Issue #73)
+
+- In addition to the console, the logger appends ISO-timestamped records to `LOG_FILE` (default: `agent-core.log` under the OS temp directory). Level control follows `LOG_LEVEL`.
+- When the file exceeds 1MB it is rotated to the `.1` generation. The "Download logs" button in settings fetches `GET /api/logs/download`, which returns both generations concatenated.
+- Logs may contain request details and SDK call contents, so the download API requires the same shared token + Origin check as the terminal API. It can also be disabled with `LOG_API_ENABLED=false`.
 
 ## Current directory (Issue #56)
 

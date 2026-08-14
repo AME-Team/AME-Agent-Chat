@@ -25,7 +25,17 @@ import { log, safeStringify } from '../logger.js';
  *  読めない)。ポート公開環境ではこれに加えネットワーク層 (ループバック束縛等) の防御が必要 */
 const TERMINAL_TOKEN = env.terminalToken || randomUUID();
 /** トークン取得エンドポイントを呼べるオリジン (exec と同じくループバックのみ) */
-const TERMINAL_TOKEN_HEADER = 'x-terminal-token';
+export const TERMINAL_TOKEN_HEADER = 'x-terminal-token';
+
+/** 共有トークン検証 (ログ API 等、機微な API から再利用する — Issue #73)。
+ *  TERMINAL_TOKEN 未設定時は起動毎にランダム生成されるため、curl 等の非ブラウザから
+ *  は未知のトークンになり 403 となる。フロントは /api/terminal/token で取得して提示する */
+export function isTerminalTokenValid(header: string | undefined): boolean {
+  return header === TERMINAL_TOKEN;
+}
+
+/** Origin 検証 (ループバック or corsOrigin 一致のみ許可) — terminal とログ API で共用 */
+export { isOriginAllowed };
 
 /** ターミナル専用セッションのタイトル (ログ・識別用。一意性は保存レジストリで担保) */
 export const TERMINAL_SESSION_TITLE = 'AME Terminal';
@@ -273,7 +283,7 @@ export function registerTerminalRoutes(app: Hono): void {
     }
     // 共有トークン検証 (Origin に加えた第二の防御)。他オリジンのローカルサイトは CORS で
     // トークンを読めないため、exec を直接叩けない
-    if (c.req.header(TERMINAL_TOKEN_HEADER) !== TERMINAL_TOKEN) {
+    if (!isTerminalTokenValid(c.req.header(TERMINAL_TOKEN_HEADER))) {
       return c.json({ error: 'invalid terminal token' }, 403);
     }
     const body: { command?: unknown } = await c.req.json().catch(() => ({}));

@@ -12,13 +12,16 @@
 
 ## 環境変数
 
-| 変数                | 既定値                   | 説明                   |
-| ------------------- | ------------------------ | ---------------------- |
-| `PORT`              | `30010`                  | リッスンポート         |
-| `HOST`              | `0.0.0.0`                | バインドアドレス       |
-| `OPENCODE_BASE_URL` | `http://localhost:40960` | OpenCode Server の URL |
-| `CORS_ORIGIN`       | `http://localhost:51730` | 許可するオリジン       |
-| `GATEKEEPER_URL`    | `http://localhost:58780` | Gatekeeper の URL      |
+| 変数                | 既定値                   | 説明                                         |
+| ------------------- | ------------------------ | -------------------------------------------- |
+| `PORT`              | `30010`                  | リッスンポート                               |
+| `HOST`              | `0.0.0.0`                | バインドアドレス                             |
+| `OPENCODE_BASE_URL` | `http://localhost:40960` | OpenCode Server の URL                       |
+| `CORS_ORIGIN`       | `http://localhost:51730` | 許可するオリジン                             |
+| `GATEKEEPER_URL`    | `http://localhost:58780` | Gatekeeper の URL                            |
+| `LOG_FILE`          | OS 一時ディレクトリ配下  | ログファイル出力先 (Issue #73)               |
+| `LOG_MAX_SIZE`      | `1048576` (1MB)          | ローテーション閾値 (bytes) (Issue #73)       |
+| `LOG_API_ENABLED`   | `true`                   | `/api/logs/download` の有効/無効 (Issue #73) |
 
 ## LLM ルーター
 
@@ -47,6 +50,13 @@
 | `/api/files`                 | `@` 参照用のファイル検索                                  |
 | `/api/ogp`                   | リンクプレビュー（SSRF 対策付き）                         |
 | `/api/auth`                  | プロバイダー認証                                          |
+| `/api/logs/download`         | ログダウンロード (Issue #73)                              |
+
+## ログ (Issue #73)
+
+- ロガーはコンソールに加えて `LOG_FILE`（既定: OS 一時ディレクトリ配下 `agent-core.log`）へ ISO タイムスタンプ付きで追記します。レベル制御は `LOG_LEVEL` に従います。
+- ファイルが 1MB を超えると `.1` 世代へローテーションします。設定画面の「ログをダウンロード」は `GET /api/logs/download` で新旧世代を連結して返します。
+- ログにはリクエスト詳細や SDK 呼び出し内容が含まれ得るため、ダウンロード API はターミナル API と同じ共有トークン + Origin 検証を要求します。`LOG_API_ENABLED=false` で無効化もできます。
 
 ## カレントディレクトリ（Issue #56）
 

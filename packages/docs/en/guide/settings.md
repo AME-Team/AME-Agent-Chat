@@ -95,6 +95,17 @@ The chat area (main window) width can be adjusted from 5 presets. Changes apply 
 
 The "Usage" icon in the header shows **token usage and cost** per provider × model. Usage is recorded in Gatekeeper.
 
+## Logs (Issue #73)
+
+Press the "**Download logs**" button in the "Logs" section of the settings dialog to download the Agent Core log file. Use it to investigate the cause when the application crashes.
+
+- The log file records the same content as the console output with **ISO timestamps** (level control follows `LOG_LEVEL`).
+- By default it is stored at `agent-core.log` under the OS temporary directory (configurable via the `LOG_FILE` environment variable). When the file exceeds 1MB (configurable via `LOG_MAX_SIZE`) it is rotated to the `.1` generation; downloads concatenate both generations.
+- The default location may be lost on OS restart or container recreation. For persistent retention, set `LOG_FILE` to an absolute durable path (e.g. `/workspace/logs/agent-core.log`, or a volume mount in Docker).
+- Downloads are limited to the **last 10MB**; if exceeded, only the tail is returned and you are notified in the UI.
+- Downloads use Agent Core's `GET /api/logs/download` (fetched through the settings screen in the browser).
+- Logs may contain request details and SDK call contents, so this API requires the same shared token + Origin check as the terminal API. Set Agent Core's `LOG_API_ENABLED=false` to disable this API when not needed (default `true`).
+
 ## Notifications
 
 While the browser window is unfocused, you can receive the following notifications (saved in the browser's localStorage).
@@ -109,6 +120,7 @@ While the browser window is unfocused, you can receive the following notificatio
 
 - Model settings (tiers / effort / compression) are stored in the **Gatekeeper** `app_settings` table (shared across sessions).
 - Theme, accent color, language and notification settings are stored in the browser's localStorage.
+- The log file is stored on the Agent Core side, under the OS temporary directory (configurable via `LOG_FILE`).
 
 ::: tip
 The backend LLM router caches model settings for 30 seconds. If changes are not reflected immediately, wait a moment.

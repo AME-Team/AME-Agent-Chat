@@ -4,6 +4,8 @@
  * OpenCode Server はコンテナ内 localhost:40960 と同居 (要件 #1 §2.4)。
  * ローカル開発時は未起動でもヘルスチェックが graceful に扱う。
  */
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { version } from 'node:process';
 
 export const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const;
@@ -14,6 +16,15 @@ const rawLogLevel = (process.env.LOG_LEVEL ?? 'info').toLowerCase();
 const logLevel: LogLevel = (LOG_LEVELS as readonly string[]).includes(rawLogLevel)
   ? (rawLogLevel as LogLevel)
   : 'info';
+
+/** ログファイルのローテーション閾値 (bytes)。不正値・過小値 (1KB 未満) は既定 (1MB) にフォールバック */
+const LOG_MAX_SIZE_MIN = 1024;
+const rawLogMaxSize = Number(process.env.LOG_MAX_SIZE ?? 1024 * 1024);
+const logMaxSize =
+  Number.isFinite(rawLogMaxSize) && rawLogMaxSize >= LOG_MAX_SIZE_MIN ? rawLogMaxSize : 1024 * 1024;
+
+/** ログダウンロード API を無効化する値 (これ以外は有効として扱う)。無効値: false/0/no/off */
+const LOG_API_DISABLED_VALUES = new Set(['false', '0', 'no', 'off']);
 
 export const env = {
   /** Agent Core (BFF) ポート — 要件 #1 §2.6 */
@@ -33,6 +44,19 @@ export const env = {
   terminalToken: process.env.TERMINAL_TOKEN ?? '',
   /** ログレベル (debug | info | warn | error) — 開発モード (`pnpm dev`) は debug (#55) */
   logLevel,
+  /** ログファイルのローテーション閾値 (bytes)。既定 1MB (Issue #73) */
+  logMaxSize,
+  /** ログファイル出力先 (Issue #73)。既定は OS の一時ディレクトリ配下の agent-core.log */
+  logFile: process.env.LOG_FILE ?? join(tmpdir(), 'ame-agent-chat', 'agent-core.log'),
+  /** ログ API (/api/logs) の公開スイッチ (Issue #73)。
+   *  ログにはリクエスト詳細や SDK 呼び出し内容が含まれ得る。
+   *  既定では有効だが、ダウンロード API はターミナル API と同じ共有トークン
+   *  (未設定時は起動毎ランダム) + Origin 検証で保護されており、LAN 上の任意ホストから
+   *  は取得できない。本番等の不要な環境では LOG_API_ENABLED=false で無効化できる。
+   *  'false' | '0' | 'no' | 'off' のいずれかで無効化 (それ以外は有効) */
+  logApiEnabled: !LOG_API_DISABLED_VALUES.has(
+    (process.env.LOG_API_ENABLED ?? 'true').toLowerCase(),
+  ),
 } as const;
 
 export const APP_INFO = {
