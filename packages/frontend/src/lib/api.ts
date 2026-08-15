@@ -3,6 +3,7 @@
  *
  * 開発時は Vite プロキシで /api -> http://localhost:30010 へ中継 (vite.config.ts)。
  */
+import { LOG_DOWNLOAD_ERROR_CODES } from '@ame-agent-chat/shared';
 
 /** API エラー (HTTP ステータス + レスポンス本文を保持) */
 export class ApiError extends Error {
@@ -16,7 +17,8 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/** fetch 実行 + エラー正規化の共通処理 (ネットワーク断は status 0、非 2xx は ApiError) */
+async function fetchChecked(path: string, init?: RequestInit): Promise<Response> {
   let res: Response;
   try {
     res = await fetch(path, {
@@ -31,6 +33,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await res.json().catch(() => ({}));
     throw new ApiError(path, res.status, body);
   }
+  return res;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetchChecked(path, init);
   return res.json() as Promise<T>;
 }
 
@@ -241,5 +248,36 @@ export const api = {
       request<{ url: string; title?: string; description?: string; image?: string }>(
         `/api/ogp?url=${encodeURIComponent(url)}`,
       ),
+  },
+
+  logs: {
+    /** ログ全文を Blob として取得 (設定画面のダウンロード用) — Issue #73。
+     *  機微情報を含むためターミナル API と同じ共有トークンをヘッダで提示する。
+     *  truncated=true は 10MB 上限で末尾のみ返されたことを示す */
+    download: async (attempt = 0): Promise<{ blob: Blob; truncated: boolean }> => {
+      const token = await getTerminalToken();
+      try {
+        const res = await fetchChecked('/api/logs/download', {
+          headers: token ? { 'x-terminal-token': token } : undefined,
+        });
+        const blob = await res.blob();
+        return { blob, truncated: res.headers.get('X-Log-Truncated') === 'true' };
+      } catch (err) {
+        // トークン失効 (agent-core 再起動等) でのみ再取得して 1 回リトライする。
+        // LOG_API_ENABLED=false / origin 不一致は再取得しても解消しないためスキップする
+        // (error 文言ではなく機械可読な code で判定する)
+        const isInvalidToken =
+          err instanceof ApiError &&
+          err.status === 403 &&
+          err.body &&
+          typeof err.body === 'object' &&
+          (err.body as { code?: string }).code === LOG_DOWNLOAD_ERROR_CODES.INVALID_TOKEN;
+        if (isInvalidToken && attempt === 0) {
+          terminalTokenCache = undefined;
+          return api.logs.download(1);
+        }
+        throw err;
+      }
+    },
   },
 };

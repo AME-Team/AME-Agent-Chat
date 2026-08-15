@@ -65,6 +65,18 @@ The APIs used by the frontend. All of them go through Agent Core (BFF); from the
 | PUT    | `/api/settings` | Save settings (to Gatekeeper)  |
 | GET    | `/api/usage`    | Aggregate token usage and cost |
 
+## Logs (Issue #73)
+
+| Method | Path                 | Description                                                          |
+| ------ | -------------------- | -------------------------------------------------------------------- |
+| GET    | `/api/logs/download` | Returns the full log as `text/plain` (concatenated with `.1` if any) |
+
+::: warning Note
+
+- Logs may contain request details and SDK call contents. This API requires the same **shared token (`x-terminal-token`) + Origin check** as the terminal API. Set `LOG_API_ENABLED=false` (default `true`) to disable this API entirely.
+- The response is limited to the **last 10MB** (when exceeded, the tail is returned with the `X-Log-Truncated: true` header).
+  :::
+
 ## Models
 
 | Method | Path             | Description               |

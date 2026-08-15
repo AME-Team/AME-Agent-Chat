@@ -17,7 +17,7 @@ import { callOpencode, getOpencodeClient } from '../opencode.js';
 import { env } from '../env.js';
 import { withDirectory } from '../cwd.js';
 import { log, safeStringify } from '../logger.js';
-
+import { effectiveAllowedOrigins } from '../allowedOrigins.js';
 /** ターミナル API の共有トークン (Issue #65)。
  *  env.TERMINAL_TOKEN が未指定の場合は起動毎にランダム生成し、フロントは
  *  /api/terminal/token から取得して exec 時に提示する。これにより Origin 偽装のみに
@@ -25,7 +25,17 @@ import { log, safeStringify } from '../logger.js';
  *  読めない)。ポート公開環境ではこれに加えネットワーク層 (ループバック束縛等) の防御が必要 */
 const TERMINAL_TOKEN = env.terminalToken || randomUUID();
 /** トークン取得エンドポイントを呼べるオリジン (exec と同じくループバックのみ) */
-const TERMINAL_TOKEN_HEADER = 'x-terminal-token';
+export const TERMINAL_TOKEN_HEADER = 'x-terminal-token';
+
+/** 共有トークン検証 (ログ API 等、機微な API から再利用する — Issue #73)。
+ *  TERMINAL_TOKEN 未設定時は起動毎にランダム生成されるため、curl 等の非ブラウザから
+ *  は未知のトークンになり 403 となる。フロントは /api/terminal/token で取得して提示する */
+export function isTerminalTokenValid(header: string | undefined): boolean {
+  return header === TERMINAL_TOKEN;
+}
+
+/** Origin 検証 (ループバック or corsOrigin 一致のみ許可) — terminal とログ API で共用 */
+export { isOriginAllowed };
 
 /** ターミナル専用セッションのタイトル (ログ・識別用。一意性は保存レジストリで担保) */
 export const TERMINAL_SESSION_TITLE = 'AME Terminal';
@@ -93,15 +103,17 @@ function inflightKey(directory?: string): string {
 }
 
 /**
- * ターミナル API の Origin 検証 (CSRF / なりすり対策)。
+ * ターミナル API の Origin 検証 (CSRF / なりすまし対策)。
  * 任意コマンド実行 API のため、リモート (別オリジン) からの CSRF を防ぐ。
  * - Origin 無し (curl / LAN 等の非ブラウザ) は拒否 (ブラウザ専用エンドポイント)
  * - オリジンがループバック (localhost / 127.0.0.1 / [::1]) なら許可
  *   → ローカルで動くフロントエンドからの要求を許し、evil.com 等のリモートサイトからの
  *     localhost:30010 へ向けた CSRF をブロックする (Origin は偽装可能だが、リモートサイトの
  *     Origin は自ドメインになるためループバックにはならない)
- * - それ以外は corsOrigin の明示リストに一致する場合のみ許可 ('*' はループバックのみに限定し
- *   リモート CSRF を許さない)
+ * - それ以外は corsOrigin の明示リストに一致する場合のみ許可。単独の `*` のみはループバックに
+ *   限定しリモート CSRF を許さない。`*` と明示エントリの混在はフェイルクローズ (明示のみ有効)
+ * - cloudflared トンネル等でフロントを外部公開する場合は、CORS_ORIGIN にそのオリジンを
+ *   明示追加する (X-Forwarded-Host 等のクライアント制御可能なヘッダは信用しない — Issue #73)
  */
 function isOriginAllowed(origin: string | undefined): boolean {
   if (!origin) return false;
@@ -114,12 +126,8 @@ function isOriginAllowed(origin: string | undefined): boolean {
   const loopback =
     host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
   if (loopback) return true;
-  const configured = env.corsOrigin
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean);
-  if (configured.includes('*')) return false; // リモート CSRF を許さない
-  return configured.includes(origin);
+  // 混在時は `*` を除外した明示リストで判定 (CORS 層と同一のフェイルクローズ挙動)
+  return effectiveAllowedOrigins.includes(origin);
 }
 
 /** session.shell が「セッション失効」を表すエラーか判定 (リトライ対象の限定) */
@@ -264,7 +272,7 @@ export function registerTerminalRoutes(app: Hono): void {
   });
 
   app.post('/api/terminal/exec', async (c) => {
-    // CSRF / なりすり対策: 任意コマンド実行 API はブラウザ (フロントエンド) からのみ使用する。
+    // CSRF / なりすまし対策: 任意コマンド実行 API はブラウザ (フロントエンド) からのみ使用する。
     // Origin ヘッダが無い (curl / LAN 上の任意クライアント等) リクエストは一律拒否し、
     // Docker でポート公開されている agent-core への localhost 越しの悪用を防ぐ。
     const origin = c.req.header('origin');
@@ -273,7 +281,7 @@ export function registerTerminalRoutes(app: Hono): void {
     }
     // 共有トークン検証 (Origin に加えた第二の防御)。他オリジンのローカルサイトは CORS で
     // トークンを読めないため、exec を直接叩けない
-    if (c.req.header(TERMINAL_TOKEN_HEADER) !== TERMINAL_TOKEN) {
+    if (!isTerminalTokenValid(c.req.header(TERMINAL_TOKEN_HEADER))) {
       return c.json({ error: 'invalid terminal token' }, 403);
     }
     const body: { command?: unknown } = await c.req.json().catch(() => ({}));

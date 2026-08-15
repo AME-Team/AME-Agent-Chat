@@ -6,6 +6,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { env } from './env.js';
 import { log } from './logger.js';
+import { corsOriginOption } from './allowedOrigins.js';
 import { restoreCurrentDirectoryAsync } from './cwd.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerSessionRoutes } from './routes/sessions.js';
@@ -18,6 +19,7 @@ import { registerGitRoutes } from './routes/git.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerCwdRoutes } from './routes/cwd.js';
 import { registerTerminalRoutes } from './routes/terminal.js';
+import { registerLogRoutes } from './routes/logs.js';
 
 export function createApp(): Hono {
   const app = new Hono();
@@ -40,9 +42,14 @@ export function createApp(): Hono {
   app.use(
     '/api/*',
     cors({
-      origin: env.corsOrigin,
+      // カンマ区切りで複数オリジンを許可 (terminal.ts の isOriginAllowed と正規化規則を共有。
+      //  CORS_ORIGIN=* は従来どおり全オリジン許可として維持)
+      origin: corsOriginOption(),
       allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Content-Type'],
+      // Content-Type に加え、ターミナル/ログ API の共有トークンヘッダを許可する (Issue #65/#73)
+      allowHeaders: ['Content-Type', 'x-terminal-token'],
+      // ログダウンロードの 10MB 切捨て通知をブラウザ JS から読めるようにする (Issue #73)
+      exposeHeaders: ['X-Log-Truncated'],
     }),
   );
 
@@ -66,10 +73,11 @@ export function createApp(): Hono {
   registerAuthRoutes(app);
   registerCwdRoutes(app);
   registerTerminalRoutes(app);
+  registerLogRoutes(app);
 
   app.notFound((c) => c.json({ error: 'Not Found' }, 404));
   app.onError((err, c) => {
-    console.error(err);
+    log.error('unhandled error:', err);
     return c.json({ error: 'Internal Server Error', message: String(err) }, 500);
   });
 

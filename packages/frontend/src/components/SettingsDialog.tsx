@@ -2,11 +2,12 @@
  * 設定ダイアログ (要件 #1 §3.2.1/§3.2.3, #2 §9.3)
  * Effort プリセット + 3層ティアの プロバイダー/モデル/推論量 + 圧縮設定。
  */
-import { useEffect } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Download, X } from 'lucide-react';
 import {
   CHAT_WIDTH_OPTIONS,
   EFFORT_PRESET_LABELS,
+  LOG_DOWNLOAD_ERROR_CODES,
   REASONING_EFFORT_LABELS,
   type ChatWidth,
   type EffortPreset,
@@ -17,6 +18,7 @@ import { useI18n } from '../lib/i18n';
 import { useUI } from '../store/ui';
 import { useSettings } from '../store/settings';
 import { useApp } from '../store/app';
+import { api, ApiError } from '../lib/api';
 
 const TIERS: ModelTier[] = ['high', 'middle', 'low'];
 const REASONING: ReasoningEffort[] = ['high', 'middle', 'low', 'nothing'];
@@ -44,6 +46,7 @@ export function ModelSettingsDialog() {
     save,
   } = useSettings();
   const pushToast = useUI((s) => s.pushToast);
+  const [downloadingLogs, setDownloadingLogs] = useState(false);
 
   useEffect(() => {
     if (open && !loaded) void load();
@@ -57,6 +60,46 @@ export function ModelSettingsDialog() {
       pushToast(t('settings.saved'), 'success');
     } catch {
       pushToast(t('settings.saveFailed'), 'error');
+    }
+  };
+
+  const onDownloadLogs = async () => {
+    if (downloadingLogs) return;
+    setDownloadingLogs(true);
+    try {
+      const { blob, truncated } = await api.logs.download();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `agent-core-${new Date().toISOString().slice(0, 10)}.log`;
+      // DOM へ接続してから click する (未接続の a.click() は Firefox/Safari で無視されることがある)
+      document.body.appendChild(a);
+      a.click();
+      // ダウンロード開始後の revoke は Firefox で中断されることがあるため遅延させる
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        a.remove();
+      }, 1000);
+      // 10MB 上限で末尾のみ返された場合、無自覚に欠落しないよう警告する
+      pushToast(
+        truncated ? t('settings.logsTruncated') : t('settings.logsDownloaded'),
+        truncated ? 'info' : 'success',
+      );
+    } catch (err) {
+      // 403 は「LOG_API_ENABLED=false」と「origin/トークン無効」で原因が異なるため、
+      // レスポンス本文の機械可読な code で判別して正しい案内を出す (トークン失効等を誤誘導しない)
+      const isDisabled =
+        err instanceof ApiError &&
+        err.status === 403 &&
+        err.body &&
+        typeof err.body === 'object' &&
+        (err.body as { code?: string }).code === LOG_DOWNLOAD_ERROR_CODES.DISABLED;
+      pushToast(
+        isDisabled ? t('settings.logsDisabled') : t('settings.logsDownloadFailed'),
+        'error',
+      );
+    } finally {
+      setDownloadingLogs(false);
     }
   };
 
@@ -201,6 +244,23 @@ export function ModelSettingsDialog() {
         </section>
 
         {loadError && <p className="mb-4 text-sm text-red-600">{t('settings.saveFailed')}</p>}
+
+        {/* ログ出力 (Issue #73) — 原因調査用 */}
+        <section className="mb-6">
+          <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+            {t('settings.logs')}
+          </h3>
+          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">{t('settings.logsDesc')}</p>
+          <button
+            type="button"
+            onClick={() => void onDownloadLogs()}
+            disabled={downloadingLogs}
+            className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700 transition-colors duration-150 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
+          >
+            <Download className="size-4" />
+            {t('settings.logsDownload')}
+          </button>
+        </section>
 
         <div className="flex justify-end">
           <button

@@ -57,6 +57,8 @@ Frontend(51730)/Gatekeeper(58780) はホスト起動。コンテナは Agent Cor
 
 **注意**: コンテナは `node`(uid 1000) で実行。Linux ホストでは `WORKSPACE_DIR` の所有 uid を 1000 に合わせること（Windows / macOS の Docker Desktop は自動解決）。
 
+**ログ (Issue #73)**: Agent Core のログは既定で OS 一時ディレクトリ配下（Docker ではコンテナ内 `/tmp`・Linux では tmpfs のことが多い）に書かれるため、コンテナ再作成や OS 再起動で消える可能性がある。恒久的に保持したい場合は `LOG_FILE` をボリュームマウント先（例: `/workspace/logs/agent-core.log`）に設定するか、`LOG_FILE` の親ディレクトリを volume 化すること。
+
 ## ポート割当（要件 #1 §2.6）
 
 | コンポーネント   | ポート                                                          |
@@ -85,7 +87,8 @@ Frontend(51730)/Gatekeeper(58780) はホスト起動。コンテナは Agent Cor
 ## テスト基盤
 
 - `pnpm test` でユニットテスト実行（agent-core / frontend）。
-- **agent-core**: 素の `node:test` + `.mjs`（SDK を変換不要で直接検証）。
+- **agent-core**: `node --import tsx --test` で実行。`.mjs`（SDK を変換不要で直接検証）に加え、
+  TS ソース（`src/*.ts`）を import するテストも tsx ローダー経由で同一ランナー上で検証できる（Issue #73）。
 - **frontend**: `tsx --test "tests/*.test.ts"`（store 等の TS + ブラウザ前提モジュールを TS ローダーで実行）。
   - Node には localStorage が無いため、store を import するテストは `tests/polyfill-localStorage.ts` を先に import する。
 - テスト追加時は lint（`eslint src tests`）と CI（`.github/workflows/ci.yml` の Test ステップ）に含まれることを確認する。
