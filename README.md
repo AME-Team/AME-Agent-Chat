@@ -47,6 +47,50 @@ docker compose down
 - OpenCode Server(40960) はコンテナ内のみ（非公開）
 - ※コンテナは `node`(uid 1000) で実行。Linux ホストの場合は `WORKSPACE_DIR` の所有 uid を 1000 に合わせること（Windows / macOS の Docker Desktop は自動解決）
 
+## CORS 設定（外部公開・cloudflared トンネル）
+
+Agent Core はフロントエンド（`http://localhost:51730`）からの API アクセスを既定で許可しています。ブラウザは `/api` へのリクエストに **Origin** ヘッダ（スキーム + ホスト + ポート）を付与するため、Agent Core はこれを検証して許可/拒否を判定します。
+
+- ローカル開発（既定）: `http://localhost:51730` が許可されるため、**設定変更は不要**
+- **cloudflared トンネル等で外部公開する場合**: ブラウザの Origin がトンネルドメイン（例: `https://ame-agent-chat.tamtarminworldjapan.win`）になるため、`CORS_ORIGIN` に追加が必要
+
+### 設定例
+
+**ローカル開発のみ（既定のまま）**
+
+```bash
+CORS_ORIGIN=http://localhost:51730
+```
+
+**cloudflared トンネルで公開（複数オリジンはカンマ区切り）**
+
+```bash
+CORS_ORIGIN=http://localhost:51730,https://ame-agent-chat.tamtarminworldjapan.win
+```
+
+**Docker での設定**（`docker-compose.yml` は `CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:51730}` を参照）
+
+```bash
+CORS_ORIGIN=http://localhost:51730,https://ame-agent-chat.tamtarminworldjapan.win docker compose up -d --build
+# または .env ファイルに記載
+```
+
+### 記法のルール
+
+| ルール               | 説明                                                                                                                                                      |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 完全一致             | ブラウザの Origin と**完全一致**で比較。末尾スラッシュや明示ポート（`https://host:443`）は一致しない                                                      |
+| カンマ区切り         | 複数オリジンをカンマ区切りで指定可能（前後の空白は自動除去）                                                                                              |
+| `*` のみ             | 要素として単独の `*` だけ指定すると全オリジン許可（従来互換）。`*` と明示エントリの混在は**フェイルクローズ**となり、`*` は無視されて明示エントリのみ有効 |
+| ワイルドカード非対応 | `https://*.example.com` のようなサブドメインワイルドカードは**サポートされない**（リテラルとして扱われ一致しない）                                        |
+
+### 403 が出る場合の確認手順
+
+1. `CORS_ORIGIN` にアクセス元の Origin が含まれているか（ブラウザのアドレスバーの URL と完全一致）を確認
+2. 末尾スラッシュや `:443` 等の明示ポートが混入していないか確認
+3. 混在設定（`*` + 明示）の場合は `*` が無効化されている点に注意
+4. ターミナル API・ログダウンロードは**さらに共有トークン検証**を要求するため、Origin 設定だけでなくフロントエンドからの正規アクセスであることも必要（`X-Forwarded-Host` 等のクライアント制御可能なヘッダは信用しない設計）
+
 ## スクリプト
 
 ```bash
