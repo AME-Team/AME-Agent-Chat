@@ -119,7 +119,7 @@ export function registerLogRoutes(app: Hono): void {
     try {
       ({ content, truncated } = readLogs());
     } catch (err) {
-      // 読み取り失敗 (権限等) は 200 + 空本文で欠落を隠さず 500 を返す
+      // 読み取り失敗 (権限等) は欠落を隠さず 500 として通知する
       log.error('log download read failed', err instanceof Error ? err.message : String(err));
       return c.json({ error: 'log read failed' }, 500);
     }
