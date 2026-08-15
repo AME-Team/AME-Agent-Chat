@@ -95,9 +95,13 @@ export function registerLogRoutes(app: Hono): void {
     if (!env.logApiEnabled) {
       return c.json({ error: 'log API disabled', code: LOG_DOWNLOAD_ERROR_CODES.DISABLED }, 403);
     }
-    // 機微情報を含むため、ターミナル API と同じトークン + Origin 検証を要求する。
-    // フロントは /api/terminal/token で取得した共有トークンをヘッダで提示する
-    if (!isOriginAllowed(c.req.header('origin'))) {
+    // 機微情報を含むため、ターミナル API と同じ共有トークン + Origin 検証を要求する。
+    // フロントは /api/terminal/token で取得した共有トークンをヘッダで提示する。
+    // ブラウザの同一オリジン GET は Origin ヘッダを送らないため、Origin が無い場合は
+    // トークン検証のみで許可する (トークンは Origin 検証付きの /api/terminal/token 経由で
+    // しか取得できないため、トークン保持自体が正規フロントの証明になる)
+    const origin = c.req.header('origin');
+    if (origin && !isOriginAllowed(origin)) {
       return c.json(
         { error: 'origin not allowed', code: LOG_DOWNLOAD_ERROR_CODES.ORIGIN_NOT_ALLOWED },
         403,
