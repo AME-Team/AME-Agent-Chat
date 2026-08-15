@@ -105,6 +105,7 @@ Press the "**Download logs**" button in the "Logs" section of the settings dialo
 - Downloads are limited to the **last 10MB**; if exceeded, only the tail is returned and you are notified in the UI.
 - Downloads use Agent Core's `GET /api/logs/download` (fetched through the settings screen in the browser).
 - Logs may contain request details and SDK call contents, so this API requires the same shared token + Origin check as the terminal API. Set Agent Core's `LOG_API_ENABLED=false` to disable this API when not needed (default `true`).
+- When exposing the frontend via a cloudflared tunnel or similar, add that origin to Agent Core's `CORS_ORIGIN` explicitly (e.g. `CORS_ORIGIN=http://localhost:51730,https://<your-tunnel-hostname>.example.com`). The Origin check does not trust client-controllable headers (such as `X-Forwarded-*`), so explicit tunnel-domain configuration is required. The comparison is an exact match against the browser's Origin (scheme + host + port, no trailing slash), so match the notation exactly. Only a standalone `*` as a comma-separated element enables **all-origin** permission. Mixing `*` with explicit entries is **fail-closed**: the `*` is ignored and only the explicit entries are allowed (execution APIs such as the terminal always allow loopback only). Wildcards such as `https://*.example.com` are **not supported** (they are treated literally and never match).
 
 ## Notifications
 

@@ -12,16 +12,16 @@
 
 ## 環境変数
 
-| 変数                | 既定値                   | 説明                                         |
-| ------------------- | ------------------------ | -------------------------------------------- |
-| `PORT`              | `30010`                  | リッスンポート                               |
-| `HOST`              | `0.0.0.0`                | バインドアドレス                             |
-| `OPENCODE_BASE_URL` | `http://localhost:40960` | OpenCode Server の URL                       |
-| `CORS_ORIGIN`       | `http://localhost:51730` | 許可するオリジン                             |
-| `GATEKEEPER_URL`    | `http://localhost:58780` | Gatekeeper の URL                            |
-| `LOG_FILE`          | OS 一時ディレクトリ配下  | ログファイル出力先 (Issue #73)               |
-| `LOG_MAX_SIZE`      | `1048576` (1MB)          | ローテーション閾値 (bytes) (Issue #73)       |
-| `LOG_API_ENABLED`   | `true`                   | `/api/logs/download` の有効/無効 (Issue #73) |
+| 変数                | 既定値                   | 説明                                                                                                                                                                              |
+| ------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`              | `30010`                  | リッスンポート                                                                                                                                                                    |
+| `HOST`              | `0.0.0.0`                | バインドアドレス                                                                                                                                                                  |
+| `OPENCODE_BASE_URL` | `http://localhost:40960` | OpenCode Server の URL                                                                                                                                                            |
+| `CORS_ORIGIN`       | `http://localhost:51730` | 許可するオリジン (カンマ区切り可)。要素として単独の `*` のみ全オリジン許可。サブドメインワイルドカード非対応・完全一致 (末尾スラッシュなし)。詳細は [設定ガイド](/guide/settings) |
+| `GATEKEEPER_URL`    | `http://localhost:58780` | Gatekeeper の URL                                                                                                                                                                 |
+| `LOG_FILE`          | OS 一時ディレクトリ配下  | ログファイル出力先 (Issue #73)                                                                                                                                                    |
+| `LOG_MAX_SIZE`      | `1048576` (1MB)          | ローテーション閾値 (bytes) (Issue #73)                                                                                                                                            |
+| `LOG_API_ENABLED`   | `true`                   | `/api/logs/download` の有効/無効 (Issue #73)                                                                                                                                      |
 
 ## LLM ルーター
 

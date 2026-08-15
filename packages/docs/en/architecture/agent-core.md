@@ -12,16 +12,16 @@
 
 ## Environment variables
 
-| Variable            | Default                  | Description                                     |
-| ------------------- | ------------------------ | ----------------------------------------------- |
-| `PORT`              | `30010`                  | Listen port                                     |
-| `HOST`              | `0.0.0.0`                | Bind address                                    |
-| `OPENCODE_BASE_URL` | `http://localhost:40960` | OpenCode Server URL                             |
-| `CORS_ORIGIN`       | `http://localhost:51730` | Allowed origin                                  |
-| `GATEKEEPER_URL`    | `http://localhost:58780` | Gatekeeper URL                                  |
-| `LOG_FILE`          | OS temp directory        | Log file output path (Issue #73)                |
-| `LOG_MAX_SIZE`      | `1048576` (1MB)          | Rotation threshold (bytes) (Issue #73)          |
-| `LOG_API_ENABLED`   | `true`                   | Enable/disable `/api/logs/download` (Issue #73) |
+| Variable            | Default                  | Description                                                                                                                                                                       |
+| ------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`              | `30010`                  | Listen port                                                                                                                                                                       |
+| `HOST`              | `0.0.0.0`                | Bind address                                                                                                                                                                      |
+| `OPENCODE_BASE_URL` | `http://localhost:40960` | OpenCode Server URL                                                                                                                                                               |
+| `CORS_ORIGIN`       | `http://localhost:51730` | Allowed origin (comma-separated). Only a standalone `*` enables all origins. No subdomain wildcards; exact match, no trailing slash. See the [settings guide](/en/guide/settings) |
+| `GATEKEEPER_URL`    | `http://localhost:58780` | Gatekeeper URL                                                                                                                                                                    |
+| `LOG_FILE`          | OS temp directory        | Log file output path (Issue #73)                                                                                                                                                  |
+| `LOG_MAX_SIZE`      | `1048576` (1MB)          | Rotation threshold (bytes) (Issue #73)                                                                                                                                            |
+| `LOG_API_ENABLED`   | `true`                   | Enable/disable `/api/logs/download` (Issue #73)                                                                                                                                   |
 
 ## LLM router
 

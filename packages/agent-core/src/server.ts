@@ -6,6 +6,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { env } from './env.js';
 import { log } from './logger.js';
+import { corsOriginOption } from './allowedOrigins.js';
 import { restoreCurrentDirectoryAsync } from './cwd.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerSessionRoutes } from './routes/sessions.js';
@@ -41,7 +42,9 @@ export function createApp(): Hono {
   app.use(
     '/api/*',
     cors({
-      origin: env.corsOrigin,
+      // カンマ区切りで複数オリジンを許可 (terminal.ts の isOriginAllowed と正規化規則を共有。
+      //  CORS_ORIGIN=* は従来どおり全オリジン許可として維持)
+      origin: corsOriginOption(),
       allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
       // Content-Type に加え、ターミナル/ログ API の共有トークンヘッダを許可する (Issue #65/#73)
       allowHeaders: ['Content-Type', 'x-terminal-token'],
