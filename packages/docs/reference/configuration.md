@@ -2,6 +2,12 @@
 
 各コンポーネントの環境変数と、ユーザー設定できる項目をまとめます。
 
+::: tip 環境変数の読み込み
+ローカル実行（`pnpm dev` / Gatekeeper の `pnpm start`）では、agent-core / gatekeeper の `dev` / `start` スクリプト（gatekeeper は `db:migrate` も）がパッケージ直下の `.env`（例: `packages/agent-core/.env`）を自動読み込みします（Node 標準の `--env-file-if-exists`）。frontend は Vite が独自にプロジェクトルートの `.env` を読み込むため対象外です。本フラグは Node v22.9.0+（または v20.19.0+）が必要で、本リポジトリは `.node-version` / `engines.node` / `docker/Dockerfile` とも Node 24 のため要件を満たします。agent-core / gatekeeper にある `.env.example` を対応する `packages/<pkg>/.env` へコピーして利用してください（frontend には `.env.example` はありません）。シェル等で既に設定済みの環境変数が `.env` の値より優先されます。
+
+一方 Docker 経由で起動する Agent Core は `docker compose`（リポジトリ直下の `.env`）が渡す環境変数を使用します。コンテナのイメージは `.dockerignore` で `.env` を除外してビルドされ、起動も `/app`（ワークスペースのマウント先とは別）から行われるため、ホスト側の `packages/agent-core/.env` は Docker では参照されません。実行モードによって設定値の所在が異なるため、`CORS_ORIGIN` 等はモードごとに設定が必要です。また `.env` はパッケージごとに独立して読まれるため、複数パッケージで必要な変数は各パッケージの `.env` へ重複記載してください。
+:::
+
 ## Agent Core の環境変数
 
 | 変数                | 既定値                   | 説明                    |

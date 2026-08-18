@@ -5,10 +5,10 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "start": "tsx --env-file-if-exists=.env src/index.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx scripts/migrate.ts",
+    "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
     "test": "node --import tsx --test scripts/startup.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src scripts"
