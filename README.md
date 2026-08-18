@@ -51,29 +51,47 @@ docker compose down
 
 Agent Core はフロントエンド（`http://localhost:51730`）からの API アクセスを既定で許可しています。ブラウザは `/api` へのリクエストに **Origin** ヘッダ（スキーム + ホスト + ポート）を付与するため、Agent Core はこれを検証して許可/拒否を判定します。
 
-- ローカル開発（既定）: `http://localhost:51730` が許可されるため、**設定変更は不要**
-- **cloudflared トンネル等で外部公開する場合**: ブラウザの Origin がトンネルドメイン（例: `https://ame-agent-chat.tamtarminworldjapan.win`）になるため、`CORS_ORIGIN` に追加が必要
+**ローカル開発のみなら設定変更は不要**です（既定で `http://localhost:51730` が許可されています）。cloudflared トンネル等で外部公開する場合のみ、以下の手順で `CORS_ORIGIN` を設定してください。
 
-### 設定例
+### 設定手順
 
-**ローカル開発のみ（既定のまま）**
+**1. 公開用 URL（トンネルホスト名）を確認する**
+
+cloudflared トンネルの URL を控えます。フロントエンドを実際に開いたときのアドレスバーの URL（スキーム + ホスト + ポート）がそのまま Origin になります（例: `https://YOUR-TUNNEL-HOSTNAME.example.com`。`YOUR-TUNNEL-HOSTNAME` は自分のトンネルホスト名に置き換えること）。
+
+**2. `CORS_ORIGIN` を設定する**
+
+- ローカル開発のみ（既定のまま）:
+
+  ```bash
+  CORS_ORIGIN=http://localhost:51730
+  ```
+
+- cloudflared トンネルで公開（複数オリジンはカンマ区切り）:
+
+  ```bash
+  CORS_ORIGIN=http://localhost:51730,https://YOUR-TUNNEL-HOSTNAME.example.com
+  ```
+
+  ※ ローカル開発を続けながら外部公開もする場合は、**両方をカンマ区切りで指定**してください。一方を省略すると、そのアクセス経路からは `/api` が拒否されます（Origin は完全一致で比較されるため）。
+
+**3. Agent Core を再起動して設定を反映する**
+
+環境変数はプロセス起動時に読まれるため、変更後は再起動が必要です。Docker の場合（`docker-compose.yml` は `CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:51730}` を参照）:
 
 ```bash
-CORS_ORIGIN=http://localhost:51730
+CORS_ORIGIN=http://localhost:51730,https://YOUR-TUNNEL-HOSTNAME.example.com docker compose up -d --build
 ```
 
-**cloudflared トンネルで公開（複数オリジンはカンマ区切り）**
+または `.env` ファイルに記載してから `docker compose up -d` でも設定できます。`.env` に書く際は、値をクォートしない・値の前後に空白を入れない・`#` は行頭コメントのみとして扱う点に注意してください:
 
-```bash
-CORS_ORIGIN=http://localhost:51730,https://ame-agent-chat.tamtarminworldjapan.win
+```
+CORS_ORIGIN=http://localhost:51730,https://YOUR-TUNNEL-HOSTNAME.example.com
 ```
 
-**Docker での設定**（`docker-compose.yml` は `CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:51730}` を参照）
+**4. 動作確認する**
 
-```bash
-CORS_ORIGIN=http://localhost:51730,https://ame-agent-chat.tamtarminworldjapan.win docker compose up -d --build
-# または .env ファイルに記載
-```
+トンネル URL でフロントエンドを開き、チャット送信やログ取得など `/api` を実際に呼び出して、CORS エラー（403）が出ないことを確認してください。
 
 ### 記法のルール
 
