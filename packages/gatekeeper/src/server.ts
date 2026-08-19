@@ -14,7 +14,7 @@ import { createMessageRepo } from './db/repos/messages.js';
 import { createSettingsRepo } from './db/repos/settings.js';
 import { createApprovalRepo, type ApprovalStatus } from './db/repos/approvals.js';
 import { createUsageRepo } from './db/repos/usage.js';
-import { classify, workspaceRoot } from './policy.js';
+import { classify } from './policy.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
 
@@ -24,6 +24,25 @@ export function createApp(db: Db): Hono {
   const settings = createSettingsRepo(db);
   const approvals = createApprovalRepo(db);
   const usage = createUsageRepo(db);
+
+  /** ポリシー判定のワークスペースルート。
+   *  env → 保存済み currentDirectory → 起動時 CWD の順で解決する。
+   *  エージェントの申告 (agentRoot) は境界保護をエージェントの自己申告に委ねないため
+   *  採用しない (agent-core は選択ディレクトリを currentDirectory へ永続化する (#56))。 */
+  async function resolveWorkspaceRoot(agentRoot?: string): Promise<string> {
+    const envRoot = process.env.AME_WORKSPACE_ROOT;
+    if (envRoot) return envRoot;
+    const saved = await settings.get('currentDirectory');
+    if (saved) {
+      if (agentRoot && agentRoot !== saved) {
+        console.warn(
+          `[gatekeeper] ignored agent-reported workspaceRoot '${agentRoot}' (configured: '${saved}')`,
+        );
+      }
+      return saved;
+    }
+    return process.cwd();
+  }
 
   const app = new Hono();
   app.use('*', logger());
@@ -132,13 +151,23 @@ export function createApp(db: Db): Hono {
   });
 
   // ---- policy ----
-  app.get('/api/policy/workspace', (c) => c.json({ workspaceRoot: workspaceRoot() || null }));
+  app.get('/api/policy/workspace', async (c) =>
+    c.json({ workspaceRoot: await resolveWorkspaceRoot() }),
+  );
 
   app.post('/api/policy/validate', async (c) => {
     const body = await c.req.json().catch(() => ({}));
-    const path = typeof body.path === 'string' ? body.path : undefined;
-    const decision = classify({ type: body.type ?? 'read', path, command: body.command });
-    return c.json({ path, ...decision });
+    // approvals と契約を揃えるため、配列パスは配列のまま classify へ渡す
+    // (要素ごとの境界判定が失われないようにする。join は表示用のみ)。
+    const rawPath =
+      typeof body.path === 'string' || Array.isArray(body.path) ? body.path : undefined;
+    const root = await resolveWorkspaceRoot();
+    const decision = classify(
+      { type: body.type ?? 'read', path: rawPath, command: body.command },
+      root,
+    );
+    const path = Array.isArray(rawPath) ? rawPath.join(', ') : rawPath;
+    return c.json({ path, ...decision, workspaceRoot: root });
   });
 
   // ---- approvals (要件 #2 §7) ----
@@ -146,19 +175,26 @@ export function createApp(db: Db): Hono {
   app.post('/api/approvals', async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const id = typeof body.id === 'string' ? body.id : crypto.randomUUID();
-    const decision = classify({
-      type: body.type ?? 'read',
-      path: body.path,
-      command: body.command,
-      description: body.description,
-    });
+    const agentRoot = typeof body.workspaceRoot === 'string' ? body.workspaceRoot : undefined;
+    const root = await resolveWorkspaceRoot(agentRoot);
+    const decision = classify(
+      {
+        type: body.type ?? 'read',
+        path: body.path,
+        command: body.command,
+        description: body.description,
+      },
+      root,
+    );
+    // 配列パス (glob/grep/external_directory 等) は表示・永続化のため文字列へ正規化する
+    const path = Array.isArray(body.path) ? body.path.join(', ') : body.path;
     const row = await approvals.create({
       id,
       sessionId: typeof body.sessionId === 'string' ? body.sessionId : '',
       messageId: body.messageId,
       permissionId: body.permissionId ?? id,
       type: body.type ?? 'read',
-      path: body.path,
+      path,
       command: body.command,
       description: body.description,
       policy: decision.action,

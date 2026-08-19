@@ -58,6 +58,18 @@ async function main(): Promise<void> {
   const server = serve({ fetch: app.fetch, port, hostname: host }, (info) => {
     console.log(`[gatekeeper] listening on http://${host}:${info.port}`);
     console.log(`[gatekeeper] sqlite: ${DB_PATH}`);
+    // AME_WORKSPACE_ROOT 未指定時は保存済み currentDirectory / 起動時 CWD を使うため
+    // 実際のポリシー境界を起動ログで明示する (境界把握のための診断情報)。
+    // HOST が 0.0.0.0 / IPv6 の場合に接続失敗しないようループバック固定で取得する。
+    void fetch(`http://127.0.0.1:${info.port}/api/policy/workspace`)
+      .then((r) => r.json())
+      .then((d: unknown) => {
+        const root = (d as { workspaceRoot?: string } | null)?.workspaceRoot;
+        console.log(`[gatekeeper] policy workspace root: ${root ?? '(unresolved)'}`);
+      })
+      .catch((err) => {
+        console.warn(`[gatekeeper] failed to resolve policy workspace root: ${String(err)}`);
+      });
   });
 
   const shutdown = (): void => {

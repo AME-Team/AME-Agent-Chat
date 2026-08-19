@@ -26,7 +26,7 @@ pnpm lint               # ESLint（フラット設定）
 pnpm lint:fix
 pnpm format             # Prettier 整形
 pnpm format:check
-pnpm test               # ユニットテスト（agent-core / frontend）
+pnpm test               # ユニットテスト（agent-core / frontend / gatekeeper）
 pnpm dev                # opencode serve 自動起動 + 全パッケージ並列 dev 起動
 pnpm build              # 全パッケージビルド
 pnpm start              # ワンコマンド起動（Docker + Gatekeeper + Frontend + ブラウザ）
@@ -86,11 +86,12 @@ Frontend(51730)/Gatekeeper(58780) はホスト起動。コンテナは Agent Cor
 
 ## テスト基盤
 
-- `pnpm test` でユニットテスト実行（agent-core / frontend）。
+- `pnpm test` でユニットテスト実行（agent-core / frontend / gatekeeper）。
 - **agent-core**: `node --import tsx --test` で実行。`.mjs`（SDK を変換不要で直接検証）に加え、
   TS ソース（`src/*.ts`）を import するテストも tsx ローダー経由で同一ランナー上で検証できる（Issue #73）。
 - **frontend**: `tsx --test "tests/*.test.ts"`（store 等の TS + ブラウザ前提モジュールを TS ローダーで実行）。
   - Node には localStorage が無いため、store を import するテストは `tests/polyfill-localStorage.ts` を先に import する。
+- **gatekeeper**: `node --import tsx --test` で実行（起動契約 + ファイル I/O ポリシー分類）。
 - テスト追加時は lint（`eslint src tests`）と CI（`.github/workflows/ci.yml` の Test ステップ）に含まれることを確認する。
 
 ## コーディング規約

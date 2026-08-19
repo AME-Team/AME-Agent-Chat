@@ -25,12 +25,12 @@ Agent Core started via Docker uses the environment variables passed by `docker c
 | `PORT`               | `58780`                           | Listen port                                                            |
 | `HOST`               | `0.0.0.0`                         | Bind address                                                           |
 | `CORS_ORIGIN`        | `http://localhost:51730`          | CORS-allowed origin                                                    |
-| `AME_WORKSPACE_ROOT` | CWD at startup                    | base directory used to decide whether a path is "inside the workspace" |
+| `AME_WORKSPACE_ROOT` | —                                 | base directory used to decide whether a path is "inside the workspace" |
 | `AME_DB_PATH`        | `packages/gatekeeper/data/ame.db` | SQLite database location                                               |
 | `NODE_ENV`           | —                                 | when `production`, internal details are hidden from error responses    |
 
 ::: tip
-If `AME_WORKSPACE_ROOT` is empty, paths are treated as "outside the workspace" by the policy engine, so setting it explicitly is recommended.
+The workspace root for policy classification is resolved in this order: `AME_WORKSPACE_ROOT` → the stored `currentDirectory` setting → the Gatekeeper process working directory at startup. Agent-reported workspace paths are not trusted for boundary protection. Normally no explicit configuration is needed because Agent Core persists the selected current directory (`currentDirectory`) with every change.
 :::
 
 ## Docker / script environment variables

@@ -2,6 +2,22 @@
 
 In AME Agent Chat, the agent's file I/O and command execution are classified by the **Gatekeeper** policy engine, and only the operations that need it are sent to the user for approval. This provides a safety layer that prevents an AI agent from accidentally performing destructive operations.
 
+## Enabling permission requests
+
+OpenCode allows most operations without asking by default, so the approval dialog would never appear. To route operations through the policy engine, this repository ships an OpenCode config (`opencode.jsonc`) that sets `bash` and `edit` to `"ask"`.
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": "ask",
+    "edit": "ask",
+  },
+}
+```
+
+With this config, every shell command and file edit emits a `permission.updated` event that Agent Core relays to Gatekeeper. Only the operations that the policy classifies as **approval** show a dialog, so everyday in-workspace commands continue to run automatically.
+
 ## How classification works
 
 Every time the agent asks for a permission, Gatekeeper classifies it automatically.
@@ -42,7 +58,7 @@ Every permission request and approve / reject decision is recorded in Gatekeeper
 
 ## Specifying the workspace
 
-The base used to determine whether a path is "inside the workspace" is set with the Gatekeeper `AME_WORKSPACE_ROOT` environment variable. The default is the current working directory at startup. See [Configuration Reference](/en/reference/configuration).
+The base used to determine whether a path is "inside the workspace" is, in order of priority: the `AME_WORKSPACE_ROOT` environment variable, the stored `currentDirectory` setting, and the Gatekeeper process working directory at startup. See [Configuration Reference](/en/reference/configuration).
 
 ## Design details
 

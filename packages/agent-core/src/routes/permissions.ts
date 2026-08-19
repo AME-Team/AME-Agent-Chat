@@ -7,7 +7,9 @@
  */
 import type { Hono } from 'hono';
 import type { Permission } from '@opencode-ai/sdk';
+import { PATH_BASED_TYPES } from '@ame-agent-chat/shared';
 import { callOpencode, getOpencodeClient } from '../opencode.js';
+import { resolveCurrentDirectory } from '../cwd.js';
 import { env } from '../env.js';
 
 /** Gatekeeper のポリシー判定 */
@@ -21,6 +23,32 @@ export async function registerPermission(
   permission: Permission,
 ): Promise<PolicyDecision | undefined> {
   try {
+    // edit 等の pattern は worktree 相対パスのため、絶対パスが入る metadata.filepath を優先する。
+    // pattern は配列で届くことがあるため、Gatekeeper の配列対応 (toPatterns) を活かして
+    // 全てのパスを判定対象として送る (bash の pattern (コマンド文字列) は path として送らない)
+    const path = PATH_BASED_TYPES.has(permission.type)
+      ? ((permission.metadata?.filepath as string | undefined) ?? permission.pattern)
+      : undefined;
+    // bash のコマンドは metadata.command に入るが、欠落時 (undefined / 空文字) は pattern
+    // (コマンド文字列) をフォールバックとして送り、Gatekeeper のインストール/シェル判定の
+    // すり抜けを防ぐ。ファイル操作 (PATH_BASED_TYPES) では command を空のまま送る。
+    const patternCmd =
+      !PATH_BASED_TYPES.has(permission.type) && permission.pattern !== undefined
+        ? Array.isArray(permission.pattern)
+          ? permission.pattern.join(' ')
+          : permission.pattern
+        : undefined;
+    const rawCommand = permission.metadata?.command;
+    const command =
+      typeof rawCommand === 'string' && rawCommand.length > 0 ? rawCommand : (patternCmd ?? '');
+    // ワークスペース解決の失敗が承認フロー自体を止めないよう、取得できなければ省略する
+    // (Gatekeeper は未指定時に保存済み/既定のルートへフォールバックする)。
+    let workspaceRoot = '';
+    try {
+      workspaceRoot = await resolveCurrentDirectory();
+    } catch {
+      workspaceRoot = '';
+    }
     const res = await fetch(`${env.gatekeeperUrl}/api/approvals`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -30,9 +58,11 @@ export async function registerPermission(
         messageId: permission.messageID,
         permissionId: permission.id,
         type: permission.type,
-        path: permission.pattern,
-        command: String(permission.metadata?.command ?? ''),
+        path,
+        command,
         description: permission.title ?? '',
+        // 選択中ワークスペースを Gatekeeper のポリシー判定へ伝える (ワークスペース内外の分類に使用)
+        workspaceRoot,
       }),
     });
     if (!res.ok) {
