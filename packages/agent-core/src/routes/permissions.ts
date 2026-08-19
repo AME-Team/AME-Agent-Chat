@@ -61,7 +61,8 @@ export async function registerPermission(
         path,
         command,
         description: permission.title ?? '',
-        // 選択中ワークスペースを Gatekeeper のポリシー判定へ伝える (ワークスペース内外の分類に使用)
+        // 診断・照合の参考として送る。エージェント申告値は境界判定に非採用で、
+        // ワークスペースルートは Gatekeeper 側 resolveWorkspaceRoot が解決する (server.ts 参照)。
         workspaceRoot,
       }),
     });

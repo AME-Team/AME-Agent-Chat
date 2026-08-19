@@ -24,6 +24,9 @@ export interface PolicyInput {
   /** 操作対象 (opencode の pattern)。ファイル操作では絶対/相対パス、bash ではコマンド文字列 */
   path?: string | string[];
   command?: string;
+  /** opencode のタイトル。gatekeeper の approvals レコードへ永続化され監査・表示に使われる
+   *  (schema.ts description 列 / server.ts)。コマンド分類には仕様上含めない (タイトル内の
+   *  破壊的語句で誤 deny しないため。classify では意図的に未使用)。 */
   description?: string;
 }
 
