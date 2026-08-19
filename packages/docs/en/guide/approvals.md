@@ -16,18 +16,22 @@ OpenCode allows most operations without asking by default, so the approval dialo
 }
 ```
 
-With this config, every shell command and file edit emits a `permission.updated` event that Agent Core relays to Gatekeeper. Only the operations that the policy classifies as **approval** show a dialog, so everyday in-workspace commands continue to run automatically.
+With this config, every shell command and file edit emits a `permission.updated` event that Agent Core relays to Gatekeeper. Only the operations that the policy classifies as **approval** show a dialog, so everyday in-workspace commands such as `git status` and `ls` continue to run automatically.
 
 ## How classification works
 
 Every time the agent asks for a permission, Gatekeeper classifies it automatically.
 
-| Policy                              | Result       | Description                                                                                             |
-| ----------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
-| Host OS shell execution             | **Deny**     | Shell / process execution on the host OS is always forbidden (matches `execute` type or shell commands) |
-| Package installation                | **Approval** | `pip` / `npm` / `pnpm` / `yarn` / `apt` / `brew` / `gem` etc. require approval                          |
-| Access outside the workspace        | **Approval** | Paths that resolve outside the workspace require approval (path-traversal protection)                   |
-| Reads / writes inside the workspace | **Allow**    | Other in-workspace I/O is allowed automatically                                                         |
+| Policy                              | Result       | Description                                                                                                                                                                  |
+| ----------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Host OS shell execution             | **Deny**     | Shell / interpreter / process execution is always forbidden (`execute` type or `bash`/`sh`/`zsh`/`eval` etc. as a command)                                                   |
+| Package installation                | **Approval** | `pip` / `npm` / `pnpm` / `yarn` / `apt` / `brew` / `gem` / `uv` / `cargo` / `go` etc. `install`/`add`/`remove` require approval                                              |
+| Destructive operations              | **Approval** | `rm` / `mv` / `dd` / `mkfs` / system-path overwrites / forced restarts / process kills / destructive `git` (`checkout .`, `restore <path>`, `reset --hard`, `clean -f`) etc. |
+| Script / binary execution           | **Approval** | Running a workspace-local executable such as `./deploy.sh` (opaque content cannot be statically verified)                                                                    |
+| Inline arbitrary code               | **Approval** | `python -c` / `node -e` / `--eval` etc. that execute arbitrary code inline                                                                                                   |
+| Command substitution / indirect ops | **Approval** | `$(...)`, backticks, `find -delete` / `xargs rm` whose safety cannot be statically verified                                                                                  |
+| Access outside the workspace        | **Approval** | Paths that resolve outside the workspace require approval (path-traversal protection)                                                                                        |
+| Reads / writes inside the workspace | **Allow**    | Other in-workspace I/O (direct non-destructive commands like `git status`, `ls`, `cat`) are allowed automatically                                                            |
 
 The classification result is handled as follows.
 

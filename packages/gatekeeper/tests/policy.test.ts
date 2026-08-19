@@ -189,6 +189,15 @@ test('classify: パッケージ除去・sudo/連鎖コマンドも判定する',
     classify({ type: 'bash', command: 'install -m 755 a /usr/local/bin/x' }, WS).action,
     'approval',
   );
+  // 書き込み先がシステムパスの場合のみ approval。ソースとしてのみ現れる読みコピーは allow
+  // (システム破壊ではないため。末尾オペランド or -o/-t/-O 引数がシステムパスのとき承認)。
+  assert.equal(classify({ type: 'bash', command: 'cp /etc/passwd /tmp/x' }, WS).action, 'allow');
+  assert.equal(
+    classify({ type: 'bash', command: 'curl -o /etc/foo http://x' }, WS).action,
+    'approval',
+  );
+  assert.equal(classify({ type: 'bash', command: 'cp -t /etc/dir file' }, WS).action, 'approval');
+  assert.equal(classify({ type: 'bash', command: 'ln -s f /etc/link' }, WS).action, 'approval');
   assert.equal(
     classify({ type: 'bash', command: 'cp /tmp/x /workspace/src/a.ts' }, WS).action,
     'allow',

@@ -89,10 +89,13 @@ const DESTRUCTIVE_RM = /^\s*rm\b/i;
 // 通常の /dev/null /tmp へのリダイレクト (/dev/null,2>&1 等) は対象外にして過剰承認を避ける。
 const DESTRUCTIVE_REDIRECT =
   /(^|[;|&\s]*)(>|>>)\s*(\/etc|\/usr|\/var|\/bin|\/sbin\/|[A-Za-z]:[\\/])/;
-// システムパスを引数に取る書き込み系コマンド (cp/tee/install/ln/curl -o 等)。
-// リダイレクトを使わずシステムパスを上書きする操作も承認対象にする。
+// システムパスを「書き込み先」とする操作 (cp/tee/install/ln/mv の最終オペランド、並びに
+// curl/wget の -o/-O や cp の -t ターゲット) を承認対象にする。
+//  例: cp file /etc/foo ✅承認 / tee /etc/x ✅ / curl -o /etc/y url ✅ / ln -s f /etc/l ✅
+//  ソースとしてのみ現れる cp /etc/passwd /tmp/x はシステム破壊ではないため allow とする
+//  (書き込み先が末尾オペランド、または -o/-t/-O の引数の場合のみシステムパスを対象にする)。
 const DESTRUCTIVE_WRITE =
-  /^\s*(cp|tee|install|ln|curl|wget|mv)\b[^\n]*\s(?:-{1,2}\w+\s+)*(-o\s+)?(\/etc|\/usr|\/var|\/bin|\/sbin\/|[A-Za-z]:[\\/])/i;
+  /(^\s*(?:cp|tee|install|ln|mv)\b[^\n]*\s+(\/etc|\/usr|\/var|\/bin|\/sbin\/|[A-Za-z]:[\\/])[^\s]*\s*$)|(^\s*(?:cp|tee|install|ln|curl|wget|mv)\b[^\n]*?(?:-o|-t|-O)\s+(\/etc|\/usr|\/var|\/bin|\/sbin\/|[A-Za-z]:[\\/]))/i;
 // 直接スクリプト実行 (./script.sh 等)。引数付きの一般コマンドとは区別して補足する。
 const DIRECT_EXEC_RE = /^\s*\.\/([\w./-]+)/i;
 // git の破壊的操作 (未追跡強制削除 / 変更破棄 / リセット) は承認対象。
