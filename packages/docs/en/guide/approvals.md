@@ -2,16 +2,37 @@
 
 In AME Agent Chat, the agent's file I/O and command execution are classified by the **Gatekeeper** policy engine, and only the operations that need it are sent to the user for approval. This provides a safety layer that prevents an AI agent from accidentally performing destructive operations.
 
+## Enabling permission requests
+
+OpenCode allows most operations without asking by default, so the approval dialog would never appear. To route operations through the policy engine, this repository ships an OpenCode config (`opencode.jsonc`) that sets `bash` and `edit` to `"ask"`.
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": "ask",
+    "edit": "ask",
+  },
+}
+```
+
+With this config, every shell command and file edit emits a `permission.updated` event that Agent Core relays to Gatekeeper. Only the operations that the policy classifies as **approval** show a dialog, so everyday in-workspace commands such as `git status` and `ls` continue to run automatically.
+
 ## How classification works
 
 Every time the agent asks for a permission, Gatekeeper classifies it automatically.
 
-| Policy                              | Result       | Description                                                                                             |
-| ----------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
-| Host OS shell execution             | **Deny**     | Shell / process execution on the host OS is always forbidden (matches `execute` type or shell commands) |
-| Package installation                | **Approval** | `pip` / `npm` / `pnpm` / `yarn` / `apt` / `brew` / `gem` etc. require approval                          |
-| Access outside the workspace        | **Approval** | Paths that resolve outside the workspace require approval (path-traversal protection)                   |
-| Reads / writes inside the workspace | **Allow**    | Other in-workspace I/O is allowed automatically                                                         |
+| Policy                              | Result       | Description                                                                                                                                                                                                                                       |
+| ----------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Host OS shell execution             | **Deny**     | Shell / interpreter / process execution is always forbidden (`execute` type or `bash`/`sh`/`zsh`/`eval` etc. as a command)                                                                                                                        |
+| Package installation                | **Approval** | `pip` / `npm` / `pnpm` / `yarn` / `apt` / `brew` / `gem` / `uv` / `cargo` / `go` etc. `install`/`add`/`remove` require approval                                                                                                                   |
+| Destructive operations              | **Approval** | `rm` / `mv` / `dd` / `mkfs` / system-path overwrites / forced restarts / process kills / destructive `git` (`checkout .`, `restore <path>`, `reset --hard`, `clean -f`) etc.                                                                      |
+| High-impact permission / truncate   | **Approval** | Recursive ownership/permission changes (`chmod -R`, `--recursive`, `chown -R`), permission changes targeting system paths, zero-size truncate (`truncate -s 0`, `--size=0`, `-s 0M`), immutable/append-only `chattr` (`+i` / `=i` / `+=i` / `+a`) |
+| Script / binary execution           | **Approval** | Running a workspace-local executable such as `./deploy.sh` (opaque content cannot be statically verified)                                                                                                                                         |
+| Inline arbitrary code               | **Approval** | `python -c` / `node -e` / `--eval` etc. that execute arbitrary code inline                                                                                                                                                                        |
+| Command substitution / indirect ops | **Approval** | `$(...)`, backticks, `find -delete` / `xargs rm` whose safety cannot be statically verified                                                                                                                                                       |
+| Access outside the workspace        | **Approval** | Paths that resolve outside the workspace require approval (path-traversal protection)                                                                                                                                                             |
+| Reads / writes inside the workspace | **Allow**    | Other in-workspace I/O (direct non-destructive commands like `git status`, `ls`, `cat`) are allowed automatically                                                                                                                                 |
 
 The classification result is handled as follows.
 
@@ -42,7 +63,7 @@ Every permission request and approve / reject decision is recorded in Gatekeeper
 
 ## Specifying the workspace
 
-The base used to determine whether a path is "inside the workspace" is set with the Gatekeeper `AME_WORKSPACE_ROOT` environment variable. The default is the current working directory at startup. See [Configuration Reference](/en/reference/configuration).
+The base used to determine whether a path is "inside the workspace" is, in order of priority: the `AME_WORKSPACE_ROOT` environment variable, the stored `currentDirectory` setting, and the Gatekeeper process working directory at startup. See [Configuration Reference](/en/reference/configuration).
 
 ## Design details
 

@@ -14,7 +14,7 @@
     "lint:fix": "eslint . --fix --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "pnpm -r --if-present --filter @ame-agent-chat/agent-core --filter @ame-agent-chat/frontend test",
+    "test": "pnpm -r --if-present --filter @ame-agent-chat/agent-core --filter @ame-agent-chat/frontend --filter @ame-agent-chat/gatekeeper test",
     "dev": "node scripts/dev.mjs",
     "build": "pnpm -r build",
     "start": "node scripts/start.mjs",

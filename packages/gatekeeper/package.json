@@ -9,9 +9,9 @@
     "start": "tsx --env-file-if-exists=.env src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
-    "test": "node --import tsx --test scripts/startup.test.ts",
+    "test": "node --import tsx --test scripts/startup.test.ts tests/policy.test.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src scripts"
+    "lint": "eslint src scripts tests"
   },
   "dependencies": {
     "@ame-agent-chat/shared": "workspace:*",

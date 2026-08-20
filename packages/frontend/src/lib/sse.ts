@@ -8,6 +8,7 @@ import { useApp } from '../store/app';
 import { useUI, type PendingPermission } from '../store/ui';
 import { notifyCompletion } from './notify';
 import { tr } from './i18n';
+import { PATH_BASED_TYPES } from '@ame-agent-chat/shared';
 
 let source: EventSource | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -34,21 +35,28 @@ export function connectEvents(): void {
       if (type === 'permission.updated') {
         const p = JSON.parse(ev.data) as PendingPermission & {
           sessionID?: string;
-          pattern?: string;
+          pattern?: string | string[];
           title?: string;
           __autoHandled?: boolean;
           __policy?: string;
+          metadata?: { command?: string; filepath?: string };
         };
         // ポリシーで自動処理された(allow/deny)イベントはダイアログを出さない (#13)
         if (p.__autoHandled) return;
         // 承認要求は非フォーカス時に通知 (#2 §9.2)
         notifyCompletion(tr('notify.approvalRequired'));
+        // パス種別はパスを表示し、bash 等の非パス種別はコマンドを表示する (重複表示を避ける)
+        const isPathType = PATH_BASED_TYPES.has(p.type);
+        const joinPattern = (v: string | string[] | undefined) =>
+          Array.isArray(v) ? v.join(' ') : v;
         useUI.getState().enqueuePermission({
           id: p.id,
           sessionId: p.sessionID ?? p.sessionId,
           type: p.type,
-          path: p.path ?? p.pattern,
-          command: p.command,
+          path: isPathType ? joinPattern(p.path ?? p.pattern) : undefined,
+          // コマンドは metadata.command に入る。bash 等の非パス種別で欠落時のみ
+          // pattern (コマンド文字列) へフォールバックし、ファイル操作では命令を表示しない
+          command: p.command ?? p.metadata?.command ?? (isPathType ? '' : joinPattern(p.pattern)),
           description: p.description,
           title: p.title,
           policy: p.policy ?? p.__policy,

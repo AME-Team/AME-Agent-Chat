@@ -4,3 +4,4 @@ export * from './types/settings.js';
 export * from './types/sse.js';
 export * from './types/command.js';
 export * from './types/log.js';
+export * from './types/permission.js';

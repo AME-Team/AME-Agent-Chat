@@ -1,0 +1,16 @@
+// AME Agent Chat — OpenCode 権限設定 (Issue #82)
+//
+// OpenCode は既定でほぼ全ての操作を allow するため、そのままでは
+// 承認フロー (permission.updated → Gatekeeper ポリシー判定 → 承認ダイアログ) が
+// 発火しない。ここで bash / edit を ask にして、Agent Core + Gatekeeper が
+// 全操作を仲介 (記録・自動判定・承認待ち) できるようにする。
+//   - bash : Gatekeeper がコマンドを分類。npm install 等は承認ダイアログ、
+//           シェル/プロセス実行は自動拒否、それ以外 (git status 等) は自動承認。
+//   - edit : ワークスペース内は自動承認、ワークスペース外は承認ダイアログ。
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": "ask",
+    "edit": "ask",
+  },
+}

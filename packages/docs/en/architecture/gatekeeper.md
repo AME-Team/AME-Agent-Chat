@@ -53,6 +53,6 @@ Drizzle migrations are applied automatically at startup. Legacy CWD-based databa
 
 - In production, error responses hide internal details (SQL, paths).
 - WAL mode and foreign-key constraints are enabled.
-- The `AME_WORKSPACE_ROOT` environment variable sets the base directory for policy classification.
+- The workspace base for policy classification is resolved from `AME_WORKSPACE_ROOT`, the stored `currentDirectory` setting, or the process working directory at startup. Agent-reported workspace paths are not trusted for boundary protection.
 
 See also [Security](/en/architecture/security).

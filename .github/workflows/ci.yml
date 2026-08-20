@@ -61,7 +61,8 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
-      # ユニットテスト (agent-core: SDK event.subscribe の AbortSignal 検証 / frontend: store の send 失敗パス)。
+      # ユニットテスト (agent-core: SDK event.subscribe の AbortSignal 検証 / frontend: store の send 失敗パス /
+      # gatekeeper: ファイル I/O ポリシー分類 + 起動契約)。
       # root の test スクリプト (AGENTS.md 記載) と同一コマンド。
       - name: Test
         run: pnpm test
