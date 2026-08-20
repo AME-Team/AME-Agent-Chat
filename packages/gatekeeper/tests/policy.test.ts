@@ -88,6 +88,42 @@ test('classify: 破壊的操作 (rm / mv / dd / 再起動 / システム上書�
     'approval',
   );
   assert.equal(classify({ type: 'bash', command: 'shutdown -h now' }, WS).action, 'approval');
+  // 権限/所有権変更の高影響形 (再帰・システムパス対象) は approval (WS 内外とも)
+  assert.equal(classify({ type: 'bash', command: 'chmod -R 777 /' }, WS).action, 'approval');
+  assert.equal(classify({ type: 'bash', command: 'chmod -R 777 ./x' }, WS).action, 'approval');
+  assert.equal(
+    classify({ type: 'bash', command: 'chmod --recursive 777 ./config' }, WS).action,
+    'approval',
+  );
+  assert.equal(classify({ type: 'bash', command: 'chown -R taito .' }, WS).action, 'approval');
+  assert.equal(
+    classify({ type: 'bash', command: 'chown root:root /etc/x' }, WS).action,
+    'approval',
+  );
+  assert.equal(classify({ type: 'bash', command: 'chmod 777 /sbin' }, WS).action, 'approval');
+  assert.equal(classify({ type: 'bash', command: 'chmod 777 /opt/app' }, WS).action, 'approval');
+  // ゼロ切り詰め (単位・長形式・= 記法に対応) は approval
+  assert.equal(
+    classify({ type: 'bash', command: 'truncate -s 0 /var/log/x' }, WS).action,
+    'approval',
+  );
+  assert.equal(classify({ type: 'bash', command: 'truncate -s 0 ./data' }, WS).action, 'approval');
+  assert.equal(classify({ type: 'bash', command: 'truncate --size=0 x' }, WS).action, 'approval');
+  assert.equal(classify({ type: 'bash', command: 'truncate -s 0M x' }, WS).action, 'approval');
+  // chattr の不変/追記専用属性付与 (+i /=i/+=i/+a) は approval (WS 内も含む)
+  assert.equal(classify({ type: 'bash', command: 'chattr +i /etc/passwd' }, WS).action, 'approval');
+  assert.equal(classify({ type: 'bash', command: 'chattr +i ./config' }, WS).action, 'approval');
+  assert.equal(classify({ type: 'bash', command: 'chattr =i ./db' }, WS).action, 'approval');
+  assert.equal(classify({ type: 'bash', command: 'chattr +=i ./x' }, WS).action, 'approval');
+  // 日常の非破壊的な権限変更・領域確保・非破壊オプションは allow
+  assert.equal(classify({ type: 'bash', command: 'chmod +x ./run.sh' }, WS).action, 'allow');
+  assert.equal(classify({ type: 'bash', command: 'chmod 644 file.txt' }, WS).action, 'allow');
+  assert.equal(classify({ type: 'bash', command: 'chmod -r file.txt' }, WS).action, 'allow');
+  assert.equal(
+    classify({ type: 'bash', command: 'chmod --reference=a.txt x' }, WS).action,
+    'allow',
+  );
+  assert.equal(classify({ type: 'bash', command: 'truncate -s 100M img' }, WS).action, 'allow');
   assert.equal(classify({ type: 'bash', command: 'echo x > /etc/passwd' }, WS).action, 'approval');
   assert.equal(classify({ type: 'bash', command: './deploy.sh' }, WS).action, 'approval');
   // システムログ等への書き込み (/var/log) も破壊的操作として承認を要求する

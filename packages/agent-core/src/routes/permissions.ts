@@ -61,8 +61,9 @@ export async function registerPermission(
         path,
         command,
         description: permission.title ?? '',
-        // 診断・照合の参考として送る。エージェント申告値は境界判定に非採用で、
-        // ワークスペースルートは Gatekeeper 側 resolveWorkspaceRoot が解決する (server.ts 参照)。
+        // 診断・照合の参考として送る。エージェント申告値は境界判定に非採用で、ワークスペース
+        // ルートは Gatekeeper 側 resolveWorkspaceRoot が解決する (判定はサーバー起点)。
+        // 送信値はサーバーが有効ルートと食い違う場合にのみ不一致警告ログ (診断) へ使われる。
         workspaceRoot,
       }),
     });

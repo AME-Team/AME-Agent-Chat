@@ -28,20 +28,34 @@ export function createApp(db: Db): Hono {
   /** ポリシー判定のワークスペースルート。
    *  env → 保存済み currentDirectory → 起動時 CWD の順で解決する。
    *  エージェントの申告 (agentRoot) は境界保護をエージェントの自己申告に委ねないため
-   *  採用しない (agent-core は選択ディレクトリを currentDirectory へ永続化する (#56))。 */
+   *  採用しない (agent-core は選択ディレクトリを currentDirectory へ永続化する (#56))。
+   *  ただし申告値が有効ルートと食い違う場合は診断のため常に警告する (env 優先時も含む)。
+   *  env 優先時は保存値 (DB) を読まずに早期 return する (不要な DB 読取・例外伝播を避ける)。 */
   async function resolveWorkspaceRoot(agentRoot?: string): Promise<string> {
     const envRoot = process.env.AME_WORKSPACE_ROOT;
-    if (envRoot) return envRoot;
-    const saved = await settings.get('currentDirectory');
-    if (saved) {
-      if (agentRoot && agentRoot !== saved) {
+    if (envRoot) {
+      if (agentRoot && agentRoot !== envRoot) {
         console.warn(
-          `[gatekeeper] ignored agent-reported workspaceRoot '${agentRoot}' (configured: '${saved}')`,
+          `[gatekeeper] ignored agent-reported workspaceRoot '${agentRoot}' (effective: '${envRoot}')`,
         );
       }
-      return saved;
+      return envRoot;
     }
-    return process.cwd();
+    // 保存値の読取は DB 障害で境界判定自体を止めないよう防御する (CWD へフォールバック)
+    let saved: string | undefined;
+    try {
+      saved = await settings.get('currentDirectory');
+    } catch (err) {
+      console.warn('[gatekeeper] settings.get failed; falling back to CWD:', String(err));
+      saved = undefined;
+    }
+    const root = saved ?? process.cwd();
+    if (agentRoot && agentRoot !== root) {
+      console.warn(
+        `[gatekeeper] ignored agent-reported workspaceRoot '${agentRoot}' (effective: '${root}')`,
+      );
+    }
+    return root;
   }
 
   const app = new Hono();

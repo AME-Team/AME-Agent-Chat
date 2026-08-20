@@ -79,10 +79,36 @@ const INLINE_CODE_RE =
 // 前提: opencode の bash は commit の pattern がコマンド文字列。判定はコマンド先頭トークンに
 // 基づく (git mv 等の前置き付きコマンドまで破壊的と誤判定しないようにする)。
 
-// 先頭トークンが破壊的コマンドのワード (mv / dd / mkfs / wipefs / 再起動系 / プロセス強制終了系 /
-// Windows の削除・フォーマット系)
+// 先頭トークンが破壊的/高影響コマンドのワード (mv / dd / mkfs / wipefs / 再起動系 /
+// プロセス強制終了系 / Windows の削除・フォーマット系)
 const DESTRUCTIVE_LEADING_RE =
   /^\s*(mv|dd|mkfs(\.[a-z-]+)?|wipefs|shutdown|reboot|halt|poweroff|pkill|killall|taskkill|del|rmdir|format)\b/i;
+// システムパスの接頭辞 (末尾スラッシュの有無・/以降の続きを問わず一致)。\b により
+// /etc /usr /var /bin /sbin /lib /opt の単体参照 (chmod 777 /sbin 等) も捕捉する。
+// コマンド文字列中の任意オペランドに一致するため、参照オペランド (chmod --reference=/etc/x)
+// でも安全側 (保守) に過剰判定し得るが、これは DESTRUCTIVE_REDIRECT / DESTRUCTIVE_WRITE と
+// 同様の意図的トレードオフ (破壊方向の見逃しより過剰承認を優先)。引用符付きパスは現行では
+// 検出しない既知の制約。
+const SYSTEM_PATH_PREFIXES = '(?:\\/etc|\\/usr|\\/var|\\/bin|\\/sbin|\\/lib|\\/opt)\\b';
+
+// 権限・所有権変更 / 切り詰めの高影響操作。日常操作 (chmod +x ./run.sh / chmod 644 f /
+// truncate -s 100M img) は許可できるよう、破壊的な形のみを承認対象にする:
+//  - 再帰 (-R / --recursive、短縮フラグクラスタ内の大文字 R) による権限/所有権一括変更
+//  - システムパス (/etc /usr /var /bin /sbin /lib /opt、Windows ドライブ) を対象とする権限変更
+//  - truncate のゼロサイズ指定 (-s 0 / -s 0M / --size=0 など単位・長形式・= 記法)
+//  - chattr の不変 (+i / =i / +=i)・追記専用 (+a) 属性の付与
+//  注意: 長形式の非破壊オプション (--reference / --from 等) や小文字 -r と誤一致しないよう
+//  単一ダッシュの短縮フラグクラスタ内の大文字 R と、--recursive の明示トークンのみに限定する。
+//  (case-sensitive: 大文字 R のみを再帰として扱い、小文字 -r (読み取り権限) は除外)
+const DESTRUCTIVE_PERM_RE = new RegExp(
+  '^\\s*(?:chmod|chown|chgrp|chattr)\\b[^\\n]*\\s+(?:--recursive|-[a-zA-Z]*R[a-zA-Z]*)\\b' +
+    '|^\\s*(?:chmod|chown|chgrp|chattr)\\b[^\\n]*\\s+\\/?' +
+    '(?:[A-Za-z]:[\\\\/]|' +
+    SYSTEM_PATH_PREFIXES +
+    ')' +
+    '|^\\s*truncate\\s+(?:-s|--size)\\s*=?\\s*0(?:[kmgtpeKMGT]i?)?\\b' +
+    '|^\\s*chattr\\b[^\\n]*(?:\\s+[+]?=+[ia]\\b|\\s+\\+\\+?[ia]\\b)',
+);
 // rm は再帰/強制/パスを問わず削除操作として常に承認 (git rm 等は先頭トークンが git のため除外)
 const DESTRUCTIVE_RM = /^\s*rm\b/i;
 // システムパス (/etc /usr /var /bin /sbin、Windows ドライブレター) への上書きリダイレクト。
@@ -175,6 +201,7 @@ export function classify(input: PolicyInput, root: string): PolicyDecision {
       segments.some(
         (s) =>
           DESTRUCTIVE_LEADING_RE.test(s) ||
+          DESTRUCTIVE_PERM_RE.test(s) ||
           DESTRUCTIVE_RM.test(s) ||
           DESTRUCTIVE_REDIRECT.test(s) ||
           DESTRUCTIVE_WRITE.test(s) ||
