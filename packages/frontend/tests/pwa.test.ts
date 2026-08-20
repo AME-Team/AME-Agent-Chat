@@ -10,10 +10,12 @@ import './polyfill-window';
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import {
+  getCapturedPromptEvent,
   isIOS,
   isInstalledPersisted,
   isStandaloneView,
   shouldShowInstallPrompt,
+  subscribeCapture,
 } from '../src/lib/pwa';
 
 const originalUserAgent = Object.getOwnPropertyDescriptor(navigator, 'userAgent');
@@ -117,4 +119,37 @@ test('isInstalledPersisted: localStorage のインストール済みフラグを
   assert.equal(localStorage.getItem('pwaInstalled'), null, '期限切れフラグが削除されること');
 
   localStorage.removeItem('pwaInstalled');
+});
+
+test('capture: beforeinstallprompt 発火で購読者が通知されイベントが捕捉される', () => {
+  // 捕捉判定は storage 状態に依存するため、先行テストの影響を受けないよう初期化する
+  localStorage.removeItem('pwaInstallDismissed');
+  localStorage.removeItem('pwaInstalled');
+  localStorage.removeItem('pwaInstallPromptDismissed');
+  try {
+    sessionStorage.removeItem('pwaInstallPromptDismissed');
+  } catch {
+    /* storage unavailable */
+  }
+
+  let notified = 0;
+  const unsub = subscribeCapture(() => {
+    notified += 1;
+  });
+
+  const Evt = globalThis.Event ?? class extends Object {};
+  const evt = new Evt('beforeinstallprompt', { cancelable: true });
+  const notPrevented = window.dispatchEvent(evt);
+  // 未インストール・未クローズ状態ならネイティブ導線を抑止して捕捉する
+  assert.equal(notPrevented, false, '標準プロンプトが抑止されること');
+  assert.equal(notified, 1, '購読者へ捕捉通知が届くこと (イベント毎に1回)');
+  assert.ok(getCapturedPromptEvent(), 'イベントが捕捉されること');
+
+  // 再発火イベントでも最新イベントへ更新して通知される (古いイベントで失敗しない)
+  const evt2 = new Evt('beforeinstallprompt', { cancelable: true });
+  const notPrevented2 = window.dispatchEvent(evt2);
+  assert.equal(notPrevented2, false, '再発火イベントも抑止されること');
+  assert.equal(notified, 2, '再発火でも購読者へ通知されること');
+
+  unsub();
 });

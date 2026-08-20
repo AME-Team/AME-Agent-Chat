@@ -30,6 +30,23 @@ const PROMPT_DISMISSED_KEY = 'pwaInstallPromptDismissed';
 let capturedPromptEvent: BeforeInstallPromptEvent | null = null;
 /** モジュールレベルのリスナーが登録済みかを示すフラグ (Vite HMR の再評価で二重登録しない) */
 let moduleListenerRegistered = false;
+/** beforeinstallprompt 捕捉を購読するハンドラ一覧 (フックが受信する) */
+const captureListeners = new Set<() => void>();
+
+/** 捕捉済みイベントを返す (フックが初期値・購読で参照する) */
+export function getCapturedPromptEvent(): BeforeInstallPromptEvent | null {
+  return capturedPromptEvent;
+}
+
+/** beforeinstallprompt 捕捉の購読登録 (フックがこれで state を同期する) */
+export function subscribeCapture(listener: () => void): () => void {
+  captureListeners.add(listener);
+  return () => captureListeners.delete(listener);
+}
+
+function notifyCaptureChange(): void {
+  captureListeners.forEach((listener) => listener());
+}
 
 /** localStorage から時限フラグを読み取る (同期・例外安全) */
 function readTimestampFlag(key: string, now = Date.now()): boolean {
@@ -73,13 +90,19 @@ export function isStandaloneViewSync(): boolean {
   return standalone || window.matchMedia('(display-mode: standalone)').matches;
 }
 
+// beforeinstallprompt の唯一の捕捉点。ここで preventDefault の分岐 (shouldCapturePrompt) を
+// 一本化し、捕捉イベントを capturedPromptEvent へ格納したうえで購読者 (フック) へ通知する。
+// フック側はこれを受信し、自前の beforeinstallprompt リスナーを持たない (単一責任・ドリフト防止)。
 function onBeforeInstallPromptLocal(e: Event): void {
   // カスタムバナーを表示する状況のみブラウザ標準プロンプトを抑止して捕捉する。
   // バナー非表示 (dismissed / installed / standalone) のときはネイティブ導線を残す
   // (無条件 preventDefault でインストール機会を失わないようにする)。
   if (!shouldCapturePrompt()) return;
   e.preventDefault();
-  if (!capturedPromptEvent) capturedPromptEvent = e as BeforeInstallPromptEvent;
+  // 毎回イベントを更新して購読者へ通知する。beforeinstallprompt は再発火し得るため、
+  // 最新イベントを保持し古いイベント (prompt 済み) で失敗しないようにする。
+  capturedPromptEvent = e as BeforeInstallPromptEvent;
+  notifyCaptureChange();
 }
 
 // モジュール読み込み時点でリスナーを登録し、React マウント前に発火するイベントを捕捉する。
@@ -159,8 +182,8 @@ export interface InstallPromptState {
 }
 
 export function useInstallPrompt(): InstallPromptState {
-  const eventRef = useRef<BeforeInstallPromptEvent | null>(capturedPromptEvent);
-  const [canInstall, setCanInstall] = useState(() => capturedPromptEvent !== null);
+  const eventRef = useRef<BeforeInstallPromptEvent | null>(getCapturedPromptEvent());
+  const [canInstall, setCanInstall] = useState(() => getCapturedPromptEvent() !== null);
   const [installed, setInstalled] = useState(() => isInstalledPersisted());
   const [isIOSDevice] = useState(() => isIOS());
   const [standalone, setStandalone] = useState(() => isStandaloneView());
@@ -177,21 +200,18 @@ export function useInstallPrompt(): InstallPromptState {
   });
 
   useEffect(() => {
-    // モジュール初期化時に捕捉済みの beforeinstallprompt があれば state/ref へ同期する
-    // (マウント前に発火したイベントをバナー表示に反映するためのレース解消)
-    if (capturedPromptEvent) {
-      eventRef.current = capturedPromptEvent;
-      setCanInstall(true);
-    }
-
-    const onPrompt = (e: Event) => {
-      // モジュール初期化リスナーと同様、ネイティブ導線を温存すべき状況では抑止しない
-      // (dismissed / installed / standalone 中に再発火するイベントはネイティブへ委ねる)
-      if (!shouldCapturePrompt()) return;
-      e.preventDefault();
-      eventRef.current = e as BeforeInstallPromptEvent;
-      setCanInstall(true);
+    // モジュールリスナーが唯一の捕捉点。購読して、マウント前 (早期捕捉) に加え
+    // マウント後に捕捉されたイベントも state/ref へ同期する (単一情報源での駆動)。
+    const syncCaptured = () => {
+      const evt = getCapturedPromptEvent();
+      if (evt) {
+        eventRef.current = evt;
+        setCanInstall(true);
+      }
     };
+    syncCaptured();
+    const unsubscribe = subscribeCapture(syncCaptured);
+
     const onInstalled = () => {
       setInstalled(true);
       persistFlag(INSTALLED_KEY);
@@ -207,10 +227,9 @@ export function useInstallPrompt(): InstallPromptState {
       mql.addListener(onDisplayMode);
     }
 
-    window.addEventListener('beforeinstallprompt', onPrompt);
     window.addEventListener('appinstalled', onInstalled);
     return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt);
+      unsubscribe();
       window.removeEventListener('appinstalled', onInstalled);
       if (typeof mql.removeEventListener === 'function') {
         mql.removeEventListener('change', onDisplayMode);
