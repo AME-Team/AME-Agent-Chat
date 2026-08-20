@@ -26,6 +26,9 @@ pnpm-debug.log*
 .ame-review/engines-ts/node_modules/
 .ame-review/engines-ts/package-lock.json
 
+# ユーザー固有のレビュー設定 (環境/端末依存・本人のみ対象)
+.ame-review/config.user.json
+
 # IDE/MCP tool state
 .serena/
 
