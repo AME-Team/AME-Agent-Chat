@@ -147,6 +147,11 @@ const ja: Dict = {
   'terminal.close': '閉じる',
   'terminal.running': '実行中...',
   'terminal.failed': '実行に失敗しました',
+  'common.close': '閉じる',
+  'pwa.install': 'アプリとしてインストール',
+  'pwa.benefits': 'ホーム画面からアプリとして起動できます。',
+  'pwa.iosSteps': '「共有」→「ホーム画面に追加」でアプリとして利用できます。',
+  'pwa.installAction': 'インストール',
 };
 
 const en: Dict = {
@@ -289,6 +294,11 @@ const en: Dict = {
   'terminal.close': 'Close',
   'terminal.running': 'Running...',
   'terminal.failed': 'Execution failed',
+  'common.close': 'Close',
+  'pwa.install': 'Install as app',
+  'pwa.benefits': 'Launch it like an app from your home screen.',
+  'pwa.iosSteps': 'Tap Share, then “Add to Home Screen” to use it as an app.',
+  'pwa.installAction': 'Install',
 };
 
 const DICTS: Record<Locale, Dict> = { ja, en };
