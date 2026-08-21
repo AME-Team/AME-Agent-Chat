@@ -43,9 +43,17 @@
 
 ## PWA
 
-- `display: standalone` で動作し、インストール可能です。
+- `display: standalone` で動作し、インストール可能です (`vite-plugin-pwa`)。
 - テーマカラーは `#005B99`（Trust Blue）。
-- Service Worker は起動時に即登録され、更新は自動反映されます。
+- Service Worker は起動時に即登録され、更新は自動反映されます（`registerType: 'autoUpdate'`）。
+- インストール導線（Issue #66）: 未インストール時は画面左下に案内バナーを表示します。
+  - Chrome / Edge / Android: `beforeinstallprompt` を捕捉し「インストール」ボタンでプロンプトを発火。
+  - iOS Safari: イベント非対応のため「共有 → ホーム画面に追加」手順を案内。
+  - バナーはインストール済み（standalone 表示中 / localStorage 記録）・ユーザーが閉じた場合は
+    表示しません（クローズ・インストール済みは 30 日で再案内可能にリセット）。
+  - 既知の制約: iOS Safari では `appinstalled` イベントが発火しないため、ホーム画面に追加済みの
+    ユーザーが通常の Safari タブで再訪したときに iOS 案内バナーが再度表示されることがあります
+    （standalone 表示中のみ検知可能）。
 
 ## デザイン（ame-ui）
 

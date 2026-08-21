@@ -43,9 +43,17 @@ In development, the Vite proxy forwards all `/api` requests to Agent Core (30010
 
 ## PWA
 
-- Runs with `display: standalone` and is installable.
+- Runs with `display: standalone` and is installable (`vite-plugin-pwa`).
 - Theme color is `#005B99` (Trust Blue).
-- The Service Worker is registered immediately on startup and updates are applied automatically.
+- The Service Worker is registered immediately on startup and updates are applied automatically (`registerType: 'autoUpdate'`).
+- Install hint (Issue #66): a banner appears bottom-left while the app is not installed.
+  - Chrome / Edge / Android: captures `beforeinstallprompt` and fires the prompt from an "Install" button.
+  - iOS Safari: shows the "Share → Add to Home Screen" instructions since the event is unsupported.
+  - The banner is hidden once installed (standalone mode / recorded in localStorage) or
+    dismissed by the user (dismissal and the installed flag reset after 30 days to allow re-prompting).
+  - Known limitation: iOS Safari does not fire `appinstalled`, so a user who has added the app to the
+    home screen may see the iOS banner again when revisiting in a regular Safari tab (detectable only
+    in standalone mode).
 
 ## Design (ame-ui)
 

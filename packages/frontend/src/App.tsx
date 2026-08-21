@@ -17,6 +17,7 @@ import { AuthDialog } from './components/AuthDialog';
 import { UsageDialog } from './components/UsageDialog';
 import { PreviewDialog } from './components/PreviewDialog';
 import { DirectoryDialog } from './components/DirectoryDialog';
+import { InstallPrompt } from './components/InstallPrompt';
 import { useApp } from './store/app';
 import { useUI } from './store/ui';
 import { connectEvents, disconnectEvents } from './lib/sse';
@@ -80,6 +81,7 @@ export function App() {
         <MessageInput />
       </div>
       <Toasts />
+      <InstallPrompt />
       <HelpDialog />
       <ApprovalDialog />
       <ModelSettingsDialog />
