@@ -32,7 +32,48 @@ npm install -g pnpm
 `nvm use` で合わせられます。
 :::
 
-## リポジトリの取得
+## リリースパッケージ（GitHub Releases）からインストール
+
+コードをダウンロードして使うだけの場合は、GitHub リリースのアーカイブが最も簡単です。
+
+1. [Releases](https://github.com/tarminjapan/AME-Agent-Chat/releases) ページから任意のバージョンの
+   **ソースアーカイブ** をダウンロードします（`ame-agent-chat-<version>.zip` または `.tar.gz`）。
+   - バージョンタグは `v1.2.3` 形式です。最新版は一番上にあります。
+2. ダウンロードしたアーカイブを展開します。
+3. 展開したディレクトリで依存関係をインストールし、起動します。
+
+::: code-group
+
+```bash [zip]
+unzip ame-agent-chat-1.2.3.zip
+cd ame-agent-chat-1.2.3
+pnpm install
+pnpm start
+```
+
+```bash [tar.gz]
+tar -xzf ame-agent-chat-1.2.3.tar.gz
+cd ame-agent-chat-1.2.3
+pnpm install
+pnpm start
+```
+
+:::
+
+::: tip
+
+- アーカイブにはソース一式と `pnpm-lock.yaml` が同梱されているため、依存関係を再現性のある状態でインストールできます。
+- `pnpm start`（ワンコマンド起動）には Docker が必要です。Docker を使わない場合は `pnpm dev`（ホスト起動）を使用してください。
+- 起動方法の詳細は [クイックスタート](/guide/quickstart) を参照してください。
+- 開発者向けの git clone 方式は [リポジトリの取得](#リポジトリの取得) を参照してください。
+  :::
+
+### Docker イメージ（GHCR）から起動
+
+リリース時には Docker イメージも `ghcr.io/tarminjapan/AME-Agent-Chat` に公開されます。コンテナで
+Agent Core + OpenCode を起動する場合は、タグを指定して `docker compose` で利用できます。
+
+## リポジトリの取得（開発者向け）
 
 ```bash
 git clone https://github.com/tarminjapan/AME-Agent-Chat.git

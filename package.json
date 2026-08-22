@@ -1,6 +1,6 @@
 {
   "name": "ame-agent-chat",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "AI Agent (OpenCode) をリッチな UI で安全・低コスト運用する Windows / Linux / macOS 対応ローカル開発環境",
@@ -21,7 +21,8 @@
     "stop": "node scripts/stop.mjs",
     "docs:dev": "pnpm --filter @ame-agent-chat/docs dev",
     "docs:build": "pnpm --filter @ame-agent-chat/docs build",
-    "docs:preview": "pnpm --filter @ame-agent-chat/docs preview"
+    "docs:preview": "pnpm --filter @ame-agent-chat/docs preview",
+    "package:release": "node scripts/package-release.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

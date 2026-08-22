@@ -31,7 +31,48 @@ npm install -g pnpm
 The recommended Node.js version is listed in the `.nvmrc` file. If you use `nvm`, run `nvm use` to match it.
 :::
 
-## Clone the repository
+## Installing from a release package (GitHub Releases)
+
+If you just want to download and use the app, the GitHub release archive is the easiest path.
+
+1. Open the [Releases](https://github.com/tarminjapan/AME-Agent-Chat/releases) page and download the
+   **source archive** for the version you want (`ame-agent-chat-<version>.zip` or `.tar.gz`).
+   - Version tags use the `v1.2.3` format. The latest release is listed first.
+2. Extract the downloaded archive.
+3. Install dependencies and start from the extracted directory.
+
+::: code-group
+
+```bash [zip]
+unzip ame-agent-chat-1.2.3.zip
+cd ame-agent-chat-1.2.3
+pnpm install
+pnpm start
+```
+
+```bash [tar.gz]
+tar -xzf ame-agent-chat-1.2.3.tar.gz
+cd ame-agent-chat-1.2.3
+pnpm install
+pnpm start
+```
+
+:::
+
+::: tip
+
+- The archive bundles the full source plus `pnpm-lock.yaml`, so dependencies install reproducibly.
+- `pnpm start` (one-command start) requires Docker. If you do not use Docker, use `pnpm dev` (host-based) instead.
+- See [Quickstart](/en/guide/quickstart) for the launch details.
+- For developers, the git clone approach is described in [Cloning the repository](#cloning-the-repository).
+  :::
+
+### Starting from the Docker image (GHCR)
+
+On each release a Docker image is also published to `ghcr.io/tarminjapan/AME-Agent-Chat`. To run the
+Agent Core + OpenCode stack in a container, reference a tag with `docker compose`.
+
+## Cloning the repository (for developers)
 
 ```bash
 git clone https://github.com/tarminjapan/AME-Agent-Chat.git
