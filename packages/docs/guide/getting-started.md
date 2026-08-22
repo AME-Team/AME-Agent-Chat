@@ -39,6 +39,6 @@ Windows / Linux / macOS のいずれでも動作し、ブラウザ上でエー�
 
 ## 関連リソース
 
-- [GitHub リポジトリ](https://github.com/tarminjapan/AME-Agent-Chat)
+- [GitHub リポジトリ](https://github.com/AME-Team/AME-Agent-Chat)
 - [OpenCode ドキュメント](https://opencode.ai/docs)
 - 開発者向け: [アーキテクチャ](/architecture/overview)・[API リファレンス](/reference/api)

@@ -104,7 +104,7 @@ export default defineConfig({
           '/architecture/': [{ text: 'アーキテクチャ', items: jaArchitecture }],
           '/reference/': [{ text: 'リファレンス', items: jaReference }],
         },
-        socialLinks: [{ icon: 'github', link: 'https://github.com/tarminjapan/AME-Agent-Chat' }],
+        socialLinks: [{ icon: 'github', link: 'https://github.com/AME-Team/AME-Agent-Chat' }],
         footer: {
           message: 'Windows / Linux / macOS 対応ローカル開発環境',
           copyright: 'Copyright © 2026 AME Agent Chat',
@@ -157,7 +157,7 @@ export default defineConfig({
           '/en/architecture/': [{ text: 'Architecture', items: enArchitecture }],
           '/en/reference/': [{ text: 'Reference', items: enReference }],
         },
-        socialLinks: [{ icon: 'github', link: 'https://github.com/tarminjapan/AME-Agent-Chat' }],
+        socialLinks: [{ icon: 'github', link: 'https://github.com/AME-Team/AME-Agent-Chat' }],
         footer: {
           message: 'A cross-platform local development environment for AI coding agents',
           copyright: 'Copyright © 2026 AME Agent Chat',

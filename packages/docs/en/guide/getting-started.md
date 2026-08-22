@@ -39,6 +39,6 @@ See the [architecture overview](/en/architecture/overview) for details.
 
 ## Related resources
 
-- [GitHub repository](https://github.com/tarminjapan/AME-Agent-Chat)
+- [GitHub repository](https://github.com/AME-Team/AME-Agent-Chat)
 - [OpenCode documentation](https://opencode.ai/docs)
 - For developers: [Architecture](/en/architecture/overview) and [API reference](/en/reference/api)

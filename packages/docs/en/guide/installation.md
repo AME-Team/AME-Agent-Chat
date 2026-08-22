@@ -35,7 +35,7 @@ The recommended Node.js version is listed in the `.nvmrc` file. If you use `nvm`
 
 If you just want to download and use the app, the GitHub release archive is the easiest path.
 
-1. Open the [Releases](https://github.com/tarminjapan/AME-Agent-Chat/releases) page and download the
+1. Open the [Releases](https://github.com/AME-Team/AME-Agent-Chat/releases) page and download the
    **source archive** for the version you want (`ame-agent-chat-<version>.zip` or `.tar.gz`).
    - Version tags use the `v1.2.3` format. The latest release is listed first.
 2. Extract the downloaded archive.
@@ -69,13 +69,13 @@ pnpm start
 
 ### Starting from the Docker image (GHCR)
 
-On each release a Docker image is also published to `ghcr.io/tarminjapan/AME-Agent-Chat`. To run the
+On each release a Docker image is also published to `ghcr.io/ame-team/ame-agent-chat`. To run the
 Agent Core + OpenCode stack in a container, reference a tag with `docker compose`.
 
 ## Cloning the repository (for developers)
 
 ```bash
-git clone https://github.com/tarminjapan/AME-Agent-Chat.git
+git clone https://github.com/AME-Team/AME-Agent-Chat.git
 cd AME-Agent-Chat
 ```
 

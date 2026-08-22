@@ -2,7 +2,7 @@
 
 OpenCode（AI Agent）をリッチな UI で安全・低コスト運用する **Windows / Linux / macOS 対応** ローカル開発環境。
 
-> コードだけを使いたい場合は、[GitHub Releases](https://github.com/tarminjapan/AME-Agent-Chat/releases) から
+> コードだけを使いたい場合は、[GitHub Releases](https://github.com/AME-Team/AME-Agent-Chat/releases) から
 > ソースアーカイブ（`.zip` / `.tar.gz`）を展開して `pnpm install && pnpm start` で起動できます。
 > 詳細は [インストール](packages/docs/guide/installation.md) を参照してください。
 
@@ -133,7 +133,7 @@ pnpm build        # ビルド
 
 ドキュメントサイト（VitePress・ja/en 対応）は GitHub Pages で公開しています。
 
-- **公開サイト**: https://tarminjapan.github.io/AME-Agent-Chat/
+- **公開サイト**: https://ame-team.github.io/AME-Agent-Chat/
 - ローカル: `pnpm docs:dev` → http://localhost:51740
 
 > **注意**: 初回のみ、リポジトリ設定（Settings → Pages）で Source を「GitHub Actions」に変更してください。`.github/workflows/docs-deploy.yml` がビルド結果を GitHub Pages にデプロイします。
