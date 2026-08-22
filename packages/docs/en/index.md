@@ -14,7 +14,7 @@ hero:
       link: /en/guide/getting-started
     - theme: alt
       text: GitHub
-      link: https://github.com/tarminjapan/AME-Agent-Chat
+      link: https://github.com/AME-Team/AME-Agent-Chat
 
 features:
   - title: Rich Chat UI

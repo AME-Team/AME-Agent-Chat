@@ -36,7 +36,7 @@ npm install -g pnpm
 
 コードをダウンロードして使うだけの場合は、GitHub リリースのアーカイブが最も簡単です。
 
-1. [Releases](https://github.com/tarminjapan/AME-Agent-Chat/releases) ページから任意のバージョンの
+1. [Releases](https://github.com/AME-Team/AME-Agent-Chat/releases) ページから任意のバージョンの
    **ソースアーカイブ** をダウンロードします（`ame-agent-chat-<version>.zip` または `.tar.gz`）。
    - バージョンタグは `v1.2.3` 形式です。最新版は一番上にあります。
 2. ダウンロードしたアーカイブを展開します。
@@ -70,13 +70,13 @@ pnpm start
 
 ### Docker イメージ（GHCR）から起動
 
-リリース時には Docker イメージも `ghcr.io/tarminjapan/AME-Agent-Chat` に公開されます。コンテナで
+リリース時には Docker イメージも `ghcr.io/ame-team/ame-agent-chat` に公開されます。コンテナで
 Agent Core + OpenCode を起動する場合は、タグを指定して `docker compose` で利用できます。
 
 ## リポジトリの取得（開発者向け）
 
 ```bash
-git clone https://github.com/tarminjapan/AME-Agent-Chat.git
+git clone https://github.com/AME-Team/AME-Agent-Chat.git
 cd AME-Agent-Chat
 ```
 
