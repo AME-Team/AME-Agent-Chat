@@ -1,0 +1,156 @@
+# AME Agent Chat — リリース自動化 (GitHub Releases)
+# `v*` 形式のタグ (例: v1.2.3) を push すると、
+#  1) 品質ゲート (typecheck / lint / format / test / build)
+#  2) 配布用ソースアーカイブ (zip / tar.gz) の生成
+#  3) Docker イメージのビルド & GHCR (ghcr.io) への publish
+#  4) GitHub Release 作成 + アーカイブ / SBOM のアップロード
+# を自動実行する。
+#
+# タグの作成例:
+#   git tag v1.2.3
+#   git push origin v1.2.3
+
+name: Release
+
+'on':
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'バージョン (例: v1.2.3)'
+        required: true
+        default: 'v0.0.0'
+
+permissions:
+  contents: write
+  packages: write
+  attestations: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-package:
+    name: Build & Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        # pnpm バージョンは package.json の packageManager から解決
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Create release archives
+        id: package
+        run: pnpm package:release
+
+      - name: List release artifacts
+        run: ls -lh dist/
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-package
+          path: |
+            dist/
+          if-no-files-found: error
+
+  docker:
+    name: Publish Docker image
+    runs-on: ubuntu-latest
+    needs: build-and-package
+    environment: github-pages
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=tag
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: true
+          sbom: true
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-package
+      - docker
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-package
+          path: dist
+
+      - name: Resolve version
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME:-${{ github.event.inputs.version }}}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          draft: true
+          generate_release_notes: true
+          files: |
+            dist/ame-agent-chat-*.zip
+            dist/ame-agent-chat-*.tar.gz
+            dist/README.md

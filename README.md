@@ -2,6 +2,10 @@
 
 OpenCode（AI Agent）をリッチな UI で安全・低コスト運用する **Windows / Linux / macOS 対応** ローカル開発環境。
 
+> コードだけを使いたい場合は、[GitHub Releases](https://github.com/tarminjapan/AME-Agent-Chat/releases) から
+> ソースアーカイブ（`.zip` / `.tar.gz`）を展開して `pnpm install && pnpm start` で起動できます。
+> 詳細は [インストール](packages/docs/guide/installation.md) を参照してください。
+
 ## 構成
 
 pnpm workspace モノレポ。
@@ -114,11 +118,16 @@ CORS_ORIGIN=http://localhost:51730,https://YOUR-TUNNEL-HOSTNAME.example.com
 ```bash
 pnpm start        # ワンコマンド起動（Docker + Gatekeeper + Frontend + ブラウザ）
 pnpm stop         # 停止（コンテナ down + プロセス終了）
+pnpm package:release  # 配布用ソースアーカイブ (zip / tar.gz) を dist/ に生成
 pnpm typecheck    # 型チェック
 pnpm lint         # ESLint
 pnpm format       # Prettier
 pnpm build        # ビルド
 ```
+
+> リリース手順: `v*` 形式のタグ（例: `git tag v1.2.3 && git push origin v1.2.3`）を push すると、
+> `.github/workflows/release.yml` が品質ゲート → アーカイブ生成 → Docker イメージ (GHCR) publish
+> → GitHub Release 作成までを自動実行します。
 
 ## ドキュメント
 
