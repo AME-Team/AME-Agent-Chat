@@ -24,6 +24,11 @@ RUN npm install -g opencode-ai@1.18.14 \
 # 自己完結型 supervisord 設定を配置(Debian 既定 config に依存しない)
 COPY docker/supervisord.conf /etc/supervisor/ame-supervisord.conf
 
+# bind mount 先 (ホストワークスペース) — 要件 #1 §2.4
+# ※Linux ホストの場合、ホスト側 uid と node(1000) の一致が必要。Windows / macOS (Docker Desktop) では自動解決。
+# 非 root (node) ユーザでも WORKDIR として使用できるよう、root コンテキストで作成し chown する。
+RUN mkdir -p /workspace && chown node:node /workspace
+
 # === 非 root ユーザでアプリ配置・実行 (要件 #1 §4.1 権限最小化) ===
 USER node
 WORKDIR /app
@@ -35,9 +40,6 @@ COPY --chown=node:node packages/ ./packages/
 # devDependencies も導入されるため tsx は利用可能(pnpm は NODE_ENV に関わらず devDeps を入れる)。
 RUN pnpm install --frozen-lockfile --filter @ame-agent-chat/agent-core...
 
-# bind mount 先 (ホストワークスペース) — 要件 #1 §2.4
-# ※Linux ホストの場合、ホスト側 uid と node(1000) の一致が必要。Windows / macOS (Docker Desktop) では自動解決。
-RUN mkdir -p /workspace
 WORKDIR /workspace
 
 ENV PORT=30010 \
