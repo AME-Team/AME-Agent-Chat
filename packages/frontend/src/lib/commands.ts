@@ -138,10 +138,19 @@ export async function executeCommand(name: string, args: string): Promise<void> 
   switch (name) {
     case '/new':
     case '/clear':
-      // 作成失敗時は createSession がエラートーストを表示済み (未処理 rejection を回避)
+      // 作成失敗時は createSession がエラートーストを表示済み (未処理 rejection を回避)。
+      // null はディレクトリ切替等で作成されなかった場合 (未選択扱い) → toast しない。
+      // 未送信の空セクションを流用した場合 (返り値が事前 currentId と同一) も「作成済み」
+      // とは出さない (#71)
       {
+        const before = app.currentId;
         const newId = await app.createSession().catch(() => undefined);
-        if (newId) ui.pushToast(tr('command.newCreated'), 'success');
+        if (newId && newId !== before) {
+          ui.pushToast(tr('command.newCreated'), 'success');
+        } else if (newId && newId === before) {
+          // 未送信の空セッションを流用した場合は、作り直したのではなく継続使用を案内する (#71)
+          ui.pushToast(tr('command.reusedEmpty'), 'info');
+        }
       }
       return;
     case '/help':
