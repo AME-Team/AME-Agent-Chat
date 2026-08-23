@@ -24,6 +24,8 @@ beforeEach(() => {
     touchedSessionIds: new Set(),
     messagesLoadingId: null,
     inFlightCreatePromise: null,
+    currentDirectory: '',
+    cwdSwitchCount: 0,
   });
   // モジュールレベルのテスト参照状態もリセットする (#71)
   resetAppModuleTestState();
@@ -282,11 +284,13 @@ test('createSession: 作成の await 中にディレクトリ切替が起きた�
     messages: [{ id: 'm1', role: 'user', text: 'hello' }],
     sessions: [session('ses_used')],
     currentDirectory: '/dirA',
+    cwdSwitchCount: 0,
   });
 
   const p = useApp.getState().createSession();
-  // 作成の await 中にディレクトリ切替
+  // 作成の await 中にユーザーによるディレクトリ切替 (cwdSwitchCount が増える)
   useApp.setState({
+    cwdSwitchCount: 1,
     currentDirectory: '/dirB',
     currentId: null,
     sessions: [],
@@ -334,6 +338,139 @@ test('createSession: 読込失敗→空確定で防護が復元される (Issue 
   assert.equal(create.mock.callCount(), 0, '防護が復元され create が呼ばれないこと');
 });
 
+test('setCurrentDirectory: 同一ディレクトリ再選択もカウンタを増やす (孤児判定の前提 #71)', async () => {
+  mock.method(api.cwd, 'set', async () => ({ current: '/dirA' }));
+  mock.method(api.sessions, 'list', async () => []);
+  useApp.setState({ currentDirectory: '/dirA', cwdSwitchCount: 0 });
+
+  await useApp.getState().setCurrentDirectory('/dirA');
+
+  assert.equal(
+    useApp.getState().cwdSwitchCount,
+    1,
+    '同一ディレクトリ再選択も切替としてカウントする',
+  );
+});
+
+test('setCurrentDirectory: ユーザー切替のみ cwdSwitchCount を増やす (孤児判定の前提 #71)', async () => {
+  mock.method(api.cwd, 'set', async () => ({ current: '/dirB' }));
+  mock.method(api.sessions, 'list', async () => []);
+  useApp.setState({ currentDirectory: '/dirA', cwdSwitchCount: 0 });
+
+  await useApp.getState().setCurrentDirectory('/dirB');
+
+  assert.equal(useApp.getState().cwdSwitchCount, 1, 'ユーザー切替でカウンタが増えること');
+});
+
+test('loadCurrentDirectory: 起動時復元は cwdSwitchCount を増やさない (孤児判定の前提 #71)', async () => {
+  mock.method(api.cwd, 'get', async () => ({
+    current: '/x',
+    projects: [],
+    ready: true,
+    settingsOk: true,
+  }));
+  useApp.setState({ cwdSwitchCount: 0 });
+
+  await useApp.getState().loadCurrentDirectory();
+
+  assert.equal(useApp.getState().cwdSwitchCount, 0, '復元ではカウンタが増えないこと');
+});
+
+test('createSession: カウンタ不変のまま値だけ変わっても孤児判定しない (カウンタゲートの分離検証 #71)', async () => {
+  let resolveCreate:
+    | ((s: { id: string; title: string; time: { created: number; updated: number } }) => void)
+    | undefined;
+  mock.method(
+    api.sessions,
+    'create',
+    () =>
+      new Promise<{ id: string; title: string; time: { created: number; updated: number } }>(
+        (res) => (resolveCreate = res),
+      ),
+  );
+  const remove = mock.method(api.sessions, 'remove', async () => ({ ok: true }));
+  useApp.setState({
+    currentId: 'ses_used',
+    messages: [{ id: 'm1', role: 'user', text: 'hello' }],
+    sessions: [session('ses_used')],
+    currentDirectory: '/dirA',
+    cwdSwitchCount: 0,
+  });
+
+  const p = useApp.getState().createSession();
+  // cwdSwitchCount 不変のまま currentDirectory だけ別値 '/dirX' へ遷移 (ユーザー切替なし)
+  useApp.setState({ currentDirectory: '/dirX' });
+  resolveCreate?.(session('ses_new'));
+
+  const id = await p;
+  assert.equal(id, 'ses_new', 'カウンタ不変なら値が変わっても孤児扱いしない (null を返さない)');
+  assert.equal(remove.mock.callCount(), 0, '孤児セッション削除が実行されないこと');
+});
+
+test('createSession: 切替→元のディレクトリへ復帰した場合は孤児判定しない (Issue #71)', async () => {
+  let resolveCreate:
+    | ((s: { id: string; title: string; time: { created: number; updated: number } }) => void)
+    | undefined;
+  mock.method(
+    api.sessions,
+    'create',
+    () =>
+      new Promise<{ id: string; title: string; time: { created: number; updated: number } }>(
+        (res) => (resolveCreate = res),
+      ),
+  );
+  const remove = mock.method(api.sessions, 'remove', async () => ({ ok: true }));
+  useApp.setState({
+    currentId: 'ses_used',
+    messages: [{ id: 'm1', role: 'user', text: 'hello' }],
+    sessions: [session('ses_used')],
+    currentDirectory: '/dirA',
+    cwdSwitchCount: 0,
+  });
+
+  const p = useApp.getState().createSession();
+  // await 中に /dirA → /dirB → /dirA と切替→復帰 (カウンタは増えるが値は同じ)
+  useApp.setState({ currentDirectory: '/dirB', cwdSwitchCount: 1 });
+  useApp.setState({ currentDirectory: '/dirA' });
+  resolveCreate?.(session('ses_new'));
+
+  const id = await p;
+  assert.equal(id, 'ses_new', '切替→復帰では孤児扱いしない (null を返さない)');
+  assert.equal(remove.mock.callCount(), 0, '正常な作成を孤児として削除しないこと');
+});
+
+test('createSession: 切替なし (cwdSwitchCount 不変) の復元/リロードでは孤児判定しない (Issue #71)', async () => {
+  let resolveCreate:
+    | ((s: { id: string; title: string; time: { created: number; updated: number } }) => void)
+    | undefined;
+  mock.method(
+    api.sessions,
+    'create',
+    () =>
+      new Promise<{ id: string; title: string; time: { created: number; updated: number } }>(
+        (res) => (resolveCreate = res),
+      ),
+  );
+  const remove = mock.method(api.sessions, 'remove', async () => ({ ok: true }));
+  useApp.setState({
+    currentId: 'ses_used',
+    messages: [{ id: 'm1', role: 'user', text: 'hello' }],
+    sessions: [session('ses_used')],
+    currentDirectory: '/dirA',
+    cwdSwitchCount: 0,
+  });
+
+  const p = useApp.getState().createSession();
+  // await 中に復元 ('' → 実値) やリロード (実値 → '') が起きても cwdSwitchCount は不変
+  useApp.setState({ currentDirectory: '' });
+  useApp.setState({ currentDirectory: '/dirA' });
+  resolveCreate?.(session('ses_new'));
+
+  const id = await p;
+  assert.equal(id, 'ses_new', '復元/リロードでは孤児扱いしない (null を返さない)');
+  assert.equal(remove.mock.callCount(), 0, '孤児セッション削除が実行されないこと');
+});
+
 test('createSession: 孤児パス (切替中) は選択有無に関わらず null を返す (Issue #71)', async () => {
   let resolveCreate:
     | ((s: { id: string; title: string; time: { created: number; updated: number } }) => void)
@@ -352,11 +489,13 @@ test('createSession: 孤児パス (切替中) は選択有無に関わらず nul
     messages: [{ id: 'm1', role: 'user', text: 'hello' }],
     sessions: [session('ses_used')],
     currentDirectory: '/dirA',
+    cwdSwitchCount: 0,
   });
 
   const p = useApp.getState().createSession();
-  // 切替後、新ディレクトリで別セッションを選択済み
+  // 切替後、新ディレクトリで別セッションを選択済み (cwdSwitchCount が増える)
   useApp.setState({
+    cwdSwitchCount: 1,
     currentDirectory: '/dirB',
     currentId: 'ses_newsel',
     sessions: [session('ses_newsel')],

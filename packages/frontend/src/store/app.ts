@@ -54,7 +54,13 @@ interface AppState {
   currentDirectory: string;
   /** 起動時のカレントディレクトリ復元が未完了か */
   cwdLoading: boolean;
-  /** ユーザーによるディレクトリ切替の回数 (Sidebar 再マウント用) */
+  /**
+   * ユーザー切替の世代 (Sidebar 再マウント用 + #71 の孤児判定用)。
+   * 契約: この値はユーザー操作由来の setCurrentDirectory のみが増加させる。
+   * 起動時復元 (loadCurrentDirectory)・リロードは増加させない。孤児判定はこの前提に依存する。
+   * またストアはモジュールシングルトンで、再初期化はページ再読込時のみ発生し
+   * in-flight の createSession を跨がないため、カウンタが途中で巻き戻ることはない。
+   */
   cwdSwitchCount: number;
   loadCurrentDirectory: () => Promise<void>;
   setCurrentDirectory: (directory: string) => Promise<void>;
@@ -391,8 +397,12 @@ export const useApp = create<AppState>((set, get) => ({
     await api.cwd.set(directory);
     // ディレクトリ切替時はセッション一覧を新ディレクトリ分へ再読込する (#56)。
     // 旧ディレクトリのセッションに紐づく state (送信済み集合・履歴読込中・送信世代) を
-    // リセットする (#71)。in-flight の createSession も null 化するが、古い run は
-    // 自分の finally が最新か確認するため新しい in-flight を誤消去しない
+    // リセットし、in-flight の createSession も null 化する (古い run は自分の finally が
+    // 最新か確認するため新しい in-flight を誤消去しない #71)。
+    // cwdSwitchCount を増加 = ユーザー切替の開始。同一ディレクトリ再選択も計上する
+    // (一覧再読込と Sidebar 再マウントを実行するため、意図的)。cwd.set が例外を投げた場合
+    // は以降の set が実行されずカウンタも currentDirectory も変わらないため、孤児判定は
+    // 発火しない (安全側・誤削除なし)
     sendGenBySession.clear();
     set((st) => ({
       currentDirectory: directory,
@@ -435,8 +445,11 @@ export const useApp = create<AppState>((set, get) => ({
     const pending = get().inFlightCreatePromise;
     if (pending) return pending;
     const run = (async () => {
-      // 呼び出し時のディレクトリ値を捕捉。await 中に実質的に切り替わった場合のみ
-      // 孤児判定する (呼び出し回数ではなく実際の値変化で判定し、初期化時の誤発火を防ぐ #71)
+      // 呼び出し時のディレクトリ状態を捕捉。孤児判定は「ユーザー切替が発生し、
+      // かつ現在値が元のディレクトリと異なる」場合のみ行う (#71)。
+      // - cwdSwitchCount: 起動時復元/リロードは増えないため切替と区別できる
+      // - currentDirectory: 切替→元に戻った場合は値が変わらないため、正常な作成を残せる
+      const cwdSwitchAtStart = get().cwdSwitchCount;
       const dirAtStart = get().currentDirectory;
       const { currentId, messages } = get();
       // 不変条件: currentId は selectSession / duplicateSession (loadMessages 経由で履歴確定)
@@ -462,11 +475,10 @@ export const useApp = create<AppState>((set, get) => ({
       try {
         const s = await api.sessions.create();
         lastCreatedId = s.id;
-        if (dirAtStart !== '' && get().currentDirectory !== dirAtStart) {
-          // 要件: 起動時は currentDirectory が既定値 '' から復元で確定するため、未初期化
-          // ('') からの遷移はディレクトリ切替と区別できない。未初期化時は孤児判定しない。
-          // 作成の await 中に実際に切り替わった場合のみ、旧ディレクトリ向けの孤児セッションを
-          // ベストエフォートで削除し、作成されなかった (null) を返す (#71)
+        if (get().cwdSwitchCount !== cwdSwitchAtStart && get().currentDirectory !== dirAtStart) {
+          // ユーザー切替が発生し、かつ現在ディレクトリが元と異なる (切替→復帰ではない) 場合、
+          // 旧ディレクトリ向けの孤児セッションをベストエフォートで削除し、作成されなかった
+          // (null) を返す (#71)
           void api.sessions.remove(s.id).catch(() => {
             /* 削除失敗はサーバ側に残るだけ (次回 loadSessions で旧ディレクトリに現れる) */
           });
