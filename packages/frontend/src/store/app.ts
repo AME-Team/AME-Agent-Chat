@@ -54,7 +54,13 @@ interface AppState {
   currentDirectory: string;
   /** 起動時のカレントディレクトリ復元が未完了か */
   cwdLoading: boolean;
-  /** ユーザーによるディレクトリ切替の回数 (Sidebar 再マウント用) */
+  /**
+   * ユーザー切替の世代 (Sidebar 再マウント用 + #71 の孤児判定用)。
+   * 契約: この値はユーザー操作由来の setCurrentDirectory のみが増加させる。
+   * 起動時復元 (loadCurrentDirectory)・リロードは増加させない。孤児判定はこの前提に依存する。
+   * またストアはモジュールシングルトンで、再初期化はページ再読込時のみ発生し
+   * in-flight の createSession を跨がないため、カウンタが途中で巻き戻ることはない。
+   */
   cwdSwitchCount: number;
   loadCurrentDirectory: () => Promise<void>;
   setCurrentDirectory: (directory: string) => Promise<void>;
@@ -62,6 +68,18 @@ interface AppState {
   // sessions
   sessions: AppSession[];
   currentId: string | null;
+  /**
+   * メッセージ送信済み (または履歴を持つ) セッション ID の集合 (#71)。
+   * 「新規チャット」連打による空セクション増殖の防護で、現在セクションが
+   * 未送信かどうかを messages 配列長のみに依存せず判定するための堅牢化フラグ。
+   * clearMessages 等で messages が空でも送信済みセッションを未送信と誤判定しない。
+   */
+  touchedSessionIds: Set<string>;
+  /** 現在履歴読込中のセッション ID (未読込中の誤流用を防ぐ #71) */
+  messagesLoadingId: string | null;
+  /** createSession の in-flight Promise (連打時に同一結果を返し二重作成を防ぐ #71)。
+   *  store state に保持するのはテストで setState リセット可能にするため */
+  inFlightCreatePromise: Promise<string | null> | null;
   /** createSession が currentId を切り替えた世代 (下書き復元の競合対策用・決定的な判定に使う) */
   sessionCreateSeq: number;
   /** ピン留めしたセッション ID (localStorage 永続化) — #2 §2.3 */
@@ -69,7 +87,9 @@ interface AppState {
   /** 並び替え基準 (更新順/作成順/名前順) — #2 §2.3 */
   sortOrder: SessionSortOrder;
   loadSessions: () => Promise<void>;
-  createSession: () => Promise<string>;
+  /** 新規セッション作成 (未送信の空セクションなら現在セクションを返す #71)。
+   *  履歴読込待ち等で作成できない場合は null (呼び出し側で未選択扱いにすること) */
+  createSession: () => Promise<string | null>;
   selectSession: (id: string) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
   renameSession: (id: string, title: string) => Promise<void>;
@@ -147,11 +167,57 @@ function entriesToMessages(entries: OCMessageEntry[]): AppMessage[] {
 /** OpenCode が通知した user メッセージ ID (楽観的表示と二重表示を防ぐ) */
 const knownUserIds = new Set<string>();
 
+// touchedSessionIds (送信済みセッション判定 #71) の更新ヘルパー。
+// 追加/削除はこの 2 関数 (と setCurrentDirectory 内の全消去) に集約する。
+// 削除 (空確定) は loadMessages のみが担い、resyncMessages / sendMessage は追加のみ行う。
+function markTouched(id: string): void {
+  // ディレクトリ切替後に旧ディレクトリのセッション履歴が遅延完了しても、新 (空) の
+  // touchedSessionIds へ再登録しない (setCurrentDirectory のリセットと一貫化 #71)
+  if (useApp.getState().currentId !== id) return;
+  useApp.setState((st) => ({ touchedSessionIds: new Set(st.touchedSessionIds).add(id) }));
+}
+function unmarkTouched(id: string): void {
+  useApp.setState((st) => {
+    const next = new Set(st.touchedSessionIds);
+    next.delete(id);
+    return { touchedSessionIds: next };
+  });
+}
+
+/**
+ * セッションごとの送信成功世代 (#71)。send 前に採られた古い履歴読込が空応答で
+ * 遅延完了しても、同セッションへの送信成功 (markTouched) を stale な unmark が
+ * 巻き戻さないための判定に使う。セッション単位で管理し、別セッションの送信と
+ * 干渉しない (グローバル世代だと空判定の抑制が過剰に働くため)。
+ */
+const sendGenBySession = new Map<string, number>();
+
+function markSend(id: string): void {
+  sendGenBySession.set(id, (sendGenBySession.get(id) ?? 0) + 1);
+}
+
+/** テスト専用: モジュールレベルの状態を初期化する (#71)。テストが直接依存する
+ *  (送信世代・読込世代・タイトル生成) に加え、同種の参照状態も揃えてリセットする */
+export function resetAppModuleTestState(): void {
+  sendGenBySession.clear();
+  messagesLoadSeq = 0;
+  lastCreatedId = null;
+  sessionsSeq = 0;
+  knownUserIds.clear();
+  loadCwdPromise = null;
+}
+
 /** 直前に自前で作成したセッション ID (タイトル自動生成の初回送信判定用) */
 let lastCreatedId: string | null = null;
 
 /** loadSessions の連番 (遅延到着した古い応答が新しい再読込結果を上書きしないための競合対策) */
 let sessionsSeq = 0;
+
+/**
+ * loadMessages の読込世代 (#71)。並行して走った古い読込が新しい読込の
+ * messagesLoadingId を消したり、store 反映を上書きしたりしないための判定に使う。
+ */
+let messagesLoadSeq = 0;
 
 /** loadCurrentDirectory の進行中 Promise (StrictMode 二重マウント等の再入を防止) */
 let loadCwdPromise: Promise<void> | null = null;
@@ -190,6 +256,8 @@ async function resyncMessages(id: string): Promise<void> {
     (async () => {
       try {
         const entries = (await api.messages.list(id)) as OCMessageEntry[];
+        // 送信永続化が確認できる場合のみ送信済みとして扱う (add のみ #71)
+        if (entries.length > 0) markTouched(id);
         const serverMessages = entriesToMessages(entries);
         useApp.setState((st) => {
           // タイムアウト後に完了した場合でも、セッション切替後は適用しない (stale ガード)
@@ -328,12 +396,22 @@ export const useApp = create<AppState>((set, get) => ({
   setCurrentDirectory: async (directory) => {
     await api.cwd.set(directory);
     // ディレクトリ切替時はセッション一覧を新ディレクトリ分へ再読込する (#56)。
-    // Sidebar はマウント時に fetch せず本 store を参照するため、リマウントと合わせても二重取得は発生しない
+    // 旧ディレクトリのセッションに紐づく state (送信済み集合・履歴読込中・送信世代) を
+    // リセットし、in-flight の createSession も null 化する (古い run は自分の finally が
+    // 最新か確認するため新しい in-flight を誤消去しない #71)。
+    // cwdSwitchCount を増加 = ユーザー切替の開始。同一ディレクトリ再選択も計上する
+    // (一覧再読込と Sidebar 再マウントを実行するため、意図的)。cwd.set が例外を投げた場合
+    // は以降の set が実行されずカウンタも currentDirectory も変わらないため、孤児判定は
+    // 発火しない (安全側・誤削除なし)
+    sendGenBySession.clear();
     set((st) => ({
       currentDirectory: directory,
       currentId: null,
       messages: [],
       tools: [],
+      touchedSessionIds: new Set(),
+      messagesLoadingId: null,
+      inFlightCreatePromise: null,
       cwdSwitchCount: st.cwdSwitchCount + 1,
     }));
     await get().loadSessions();
@@ -341,6 +419,9 @@ export const useApp = create<AppState>((set, get) => ({
 
   sessions: [],
   currentId: null,
+  touchedSessionIds: new Set<string>(),
+  messagesLoadingId: null,
+  inFlightCreatePromise: null,
   sessionCreateSeq: 0,
   pinned: JSON.parse(localStorage.getItem('pinned') ?? '[]') as string[],
   sortOrder: (localStorage.getItem('sortOrder') as SessionSortOrder) ?? 'updated',
@@ -356,37 +437,91 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   createSession: async () => {
-    try {
-      const s = await api.sessions.create();
-      lastCreatedId = s.id;
-      set((st) => ({
-        sessions: [s, ...st.sessions],
-        currentId: s.id,
-        messages: [],
-        tools: [],
-        sessionCreateSeq: st.sessionCreateSeq + 1,
-      }));
-      return s.id;
-    } catch (e) {
-      // 未到達 (Agent Core への接続断: status 0 / OpenCode Server 未起動: 503) のみ
-      // reachable=false として扱う (#44)。その他はサーバー実エラーのため reachable を維持する。
-      if (e instanceof ApiError && (e.status === 0 || e.status === 503)) {
-        set({ reachable: false });
-        useUI.getState().pushToast(tr('chat.createSessionFailed'), 'error');
-      } else {
-        useUI.getState().pushToast(tr('chat.createSessionError'), 'error');
+    // Issue #71: 未送信の新規セクション (メッセージ 0 件) が選択中のまま「新規チャット」を
+    // 連打するとセクションが増殖するため、作成せず現在のセクションを返す。
+    // 未送信判定は messages 配列長に加え、送信済みセッション ID 集合 (touchedSessionIds)
+    // で行う (clearMessages 等で messages が空でも送信済みセッションを未送信と誤判定しない)。
+    // 連打・ダブルクリックの並行実行は同一 Promise を返して二重作成を防ぐ。
+    const pending = get().inFlightCreatePromise;
+    if (pending) return pending;
+    const run = (async () => {
+      // 呼び出し時のディレクトリ状態を捕捉。孤児判定は「ユーザー切替が発生し、
+      // かつ現在値が元のディレクトリと異なる」場合のみ行う (#71)。
+      // - cwdSwitchCount: 起動時復元/リロードは増えないため切替と区別できる
+      // - currentDirectory: 切替→元に戻った場合は値が変わらないため、正常な作成を残せる
+      const cwdSwitchAtStart = get().cwdSwitchCount;
+      const dirAtStart = get().currentDirectory;
+      const { currentId, messages } = get();
+      // 不変条件: currentId は selectSession / duplicateSession (loadMessages 経由で履歴確定)
+      // または createSession (履歴の無い新規) のみで設定される。loadSessions 等が直接
+      // currentId を set することはないため、「未読込だが履歴を持つ」状態は存在しない。
+      // 流用判定 (§71) はこの前提の上で messages 空 + 未送信 = 未読込でも安全な新規のみを対象とする
+      const current = currentId ? get().sessions.find((s) => s.id === currentId) : undefined;
+      if (
+        current &&
+        currentId !== null &&
+        // 無題 (既定の空タイトル) の空セッションのみ流用する。ユーザーがリネームした
+        // 空セッションへの「新規チャット」は意図的な操作のため新規作成する (#71)
+        !current.title &&
+        messages.length === 0 &&
+        !get().touchedSessionIds.has(currentId) &&
+        // 履歴読込が進行中のセッションは未判定のため流用しない (読込完了後に再判定 #71)
+        get().messagesLoadingId !== currentId
+      ) {
+        // 未タイトルの空セッションを流用するので、初回送信時にタイトル自動生成を発火させる
+        lastCreatedId = currentId;
+        return currentId;
       }
-      throw e;
-    }
+      try {
+        const s = await api.sessions.create();
+        lastCreatedId = s.id;
+        if (get().cwdSwitchCount !== cwdSwitchAtStart && get().currentDirectory !== dirAtStart) {
+          // ユーザー切替が発生し、かつ現在ディレクトリが元と異なる (切替→復帰ではない) 場合、
+          // 旧ディレクトリ向けの孤児セッションをベストエフォートで削除し、作成されなかった
+          // (null) を返す (#71)
+          void api.sessions.remove(s.id).catch(() => {
+            /* 削除失敗はサーバ側に残るだけ (次回 loadSessions で旧ディレクトリに現れる) */
+          });
+          return null;
+        }
+        set((st) => ({
+          sessions: [s, ...st.sessions],
+          currentId: s.id,
+          messages: [],
+          tools: [],
+          sessionCreateSeq: st.sessionCreateSeq + 1,
+        }));
+        return s.id;
+      } catch (e) {
+        // 未到達 (Agent Core への接続断: status 0 / OpenCode Server 未起動: 503) のみ
+        // reachable=false として扱う (#44)。その他はサーバー実エラーのため reachable を維持する。
+        if (e instanceof ApiError && (e.status === 0 || e.status === 503)) {
+          set({ reachable: false });
+          useUI.getState().pushToast(tr('chat.createSessionFailed'), 'error');
+        } else {
+          useUI.getState().pushToast(tr('chat.createSessionError'), 'error');
+        }
+        throw e;
+      }
+    })();
+    const wrapped = run.finally(() => {
+      if (get().inFlightCreatePromise === wrapped) set({ inFlightCreatePromise: null });
+    });
+    set({ inFlightCreatePromise: wrapped });
+    return wrapped;
   },
 
   selectSession: async (id) => {
-    set({ currentId: id, messages: [], tools: [] });
+    // messagesLoadingId を同期設定し、loadMessages 起動前の数マイクロ秒 (未読込) でも
+    // createSession が当該セッションを誤って流用判定しないようにする (#71)
+    set({ currentId: id, messages: [], tools: [], messagesLoadingId: id });
     await get().loadMessages(id);
   },
 
   deleteSession: async (id) => {
     await api.sessions.remove(id);
+    unmarkTouched(id);
+    sendGenBySession.delete(id);
     set((st) => ({
       sessions: st.sessions.filter((s) => s.id !== id),
       pinned: st.pinned.filter((p) => p !== id),
@@ -523,11 +658,31 @@ export const useApp = create<AppState>((set, get) => ({
   tools: [],
 
   loadMessages: async (id) => {
+    const mySeq = ++messagesLoadSeq;
+    // 読込開始時点の「このセッションの」送信世代。読込の完了が遅い間に同セッションへの
+    // 送信が成功済みなら unmark を抑制する (他セッションの送信では抑制しない #71)
+    const sendGenAtLoad = sendGenBySession.get(id) ?? 0;
+    set({ messagesLoadingId: id });
     try {
       const entries = (await api.messages.list(id)) as OCMessageEntry[];
+      // 並行読込やセッション切替による stale 結果は反映しない (最新の読込 + 現セッションのみ #71)
+      if (mySeq !== messagesLoadSeq || get().currentId !== id) return;
+      // サーバに履歴があるセッションは送信済みとして扱う (#71 の連打防護の判定用)。
+      // 空と確定した場合は解除する — 一時的な失敗で fail-open 登録されたセッションを復元。
+      // ただし、読込開始後に送信が成功していた場合 (sendGen が進んでいる) は解除しない
+      // (sendMessage の markTouched を stale な空応答が巻き戻さないように #71)
+      if (entries.length > 0) markTouched(id);
+      else if ((sendGenBySession.get(id) ?? 0) === sendGenAtLoad) unmarkTouched(id);
       set({ messages: entriesToMessages(entries), reachable: true });
     } catch {
+      if (mySeq !== messagesLoadSeq || get().currentId !== id) return;
+      // 読込失敗時は空か否かを判別不能なため送信済み扱い (fail-open) にして、
+      // 防護がユーザーを閉じ込めないようにする (#71)
+      markTouched(id);
       set({ messages: [] });
+    } finally {
+      // 自分が最新の読込である場合のみフラグを戻す (古い読込が新しい読込のフラグを消さない #71)
+      if (mySeq === messagesLoadSeq) set({ messagesLoadingId: null });
     }
   },
 
@@ -536,7 +691,19 @@ export const useApp = create<AppState>((set, get) => ({
     let id = currentId;
     if (!id) {
       try {
-        id = await createSession();
+        const created = await createSession();
+        if (!created) {
+          // 作成されなかった (ディレクトリ切替等で null)。切替後に別セッションを選択済み
+          // なら送信は継続され見えるため無通知、未選択なら中断を通知して返す (#71)
+          const current = get().currentId;
+          if (!current) {
+            useUI.getState().pushToast(tr('chat.sendInterrupted'), 'info');
+            return;
+          }
+          id = current;
+        } else {
+          id = created;
+        }
       } catch {
         // 作成失敗時は createSession がエラートーストを表示済み → 送信を中断
         return;
@@ -559,6 +726,10 @@ export const useApp = create<AppState>((set, get) => ({
           role: 'assistant',
           text: `\`\`\`bash\n$ ${res.bash.command}\n\`\`\`\n\n${output}`,
         };
+        // 成功後に送信済みセッションとして扱う (#71 の連打防護の判定用)。
+        // markSend は stale な空応答 unmark がこのセッションのフラグを解除しないための世代
+        markTouched(id);
+        markSend(id);
         set((st) => ({ messages: [...st.messages, assistant], busy: false }));
       } catch (e) {
         set((st) => ({
@@ -598,6 +769,13 @@ export const useApp = create<AppState>((set, get) => ({
     const preMessageIds = new Set(messages.map((m) => m.id));
     try {
       await api.messages.send(id, text, get().selectedModel ?? undefined, attachments);
+      // サーバ応答の完了 (resolve) を送信成功とみなし、後続の SSE/再同期の失敗に
+      // 影響されないよう送信済みとして扱う (#71 の連打防護の判定用)。
+      // await 中にセッション切替が起きた場合は markTouched 内部の currentId ガードで
+      // 静かにスキップされる (再選択時の loadMessages で自己回復する)。
+      // markSend は stale な空応答 unmark がこのセッションのフラグを解除しないための世代
+      markTouched(id);
+      markSend(id);
     } catch (e) {
       // send 自体の失敗のみエラーとして扱う (再同期失敗と混同しない)。
       // ここに到達する時点で optimistic は必ず生成済み (上記で try より前に生成。

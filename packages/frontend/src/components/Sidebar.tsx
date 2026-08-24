@@ -182,6 +182,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
   return (
     // collapsed 時はアンマウントせず非表示にする (ローカル状態を保持 #57)
     <aside className={cn('flex w-72 shrink-0 flex-col gap-4 p-4', collapsed && 'hidden')}>
+      {/* 戻り値は使用しない (連打防止の流用・null は no-op 扱い #71) */}
       <button
         type="button"
         onClick={() => void createSession().catch(() => {})}

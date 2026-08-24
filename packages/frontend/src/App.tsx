@@ -58,6 +58,7 @@ export function App() {
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         if (!typing) {
           e.preventDefault();
+          // 戻り値は使用しない (連打防止の流用・null は no-op 扱い #71)
           void createSession().catch(() => {});
         }
       } else if (e.key === '?' && !typing && !e.isComposing) {
