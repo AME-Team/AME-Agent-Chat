@@ -15,6 +15,7 @@ import { callOpencode, getOpencodeClient } from '../opencode.js';
 import { env } from '../env.js';
 import { withDirectory } from '../cwd.js';
 import { resolveTaskModel, shouldCompact, type RoutedModel } from '../router.js';
+import { resolveAgent } from '../agent.js';
 import { log, safeStringify } from '../logger.js';
 
 interface PromptRequestBody {
@@ -93,18 +94,28 @@ export function registerMessageRoutes(app: Hono): void {
     // !Bash (#2 §3.3): サンドボックス(コンテナ)内でコマンドを実行し結果を返す
     // ※ @参照のファイル内容がコマンドへ混入しないよう、生テキストのまま判定し
     //   Markdown 画像記法 `![...]` とは衝突を回避
+    // ※ shell 実行は選択中エージェント (plan 等) の bash 権限に依存させず、明示的に build で
+    //   実行する (PLAN モード中でも !Bash が壊れないようにする — Gate 1 指摘対応)。
+    //   従来の body.agent ?? 'build' (カスタムエージェント名指定可) から「常に build」への
+    //   意図的な変更であり、公開 API (ポート 30010) に対する破壊的変更のため docs に明記する
     if (body.text.trim().startsWith('!') && !body.text.trim().startsWith('![')) {
       const command = body.text.trim().slice(1).trim();
       const shell = await callOpencode(() =>
         api.session.shell({
           path: { id },
-          body: { agent: body.agent ?? 'build', command },
+          body: { agent: 'build', command },
           query: withDirectory(),
         }),
       );
       if (shell.error) return c.json({ error: shell.error }, shell.unreachable ? 503 : 500);
       return c.json({ bash: { command, output: shell.data } }, 201);
     }
+
+    // エージェント名の解決 (Issue #72): 未指定は既定 (build)、非文字列・空文字は 400 で明示拒否。
+    // build/plan に限らずカスタムエージェント名も許可 (黙って build 化して破壊しない — Gate 1 指摘対応)
+    const resolved = resolveAgent(body.agent);
+    if (!resolved.ok) return c.json({ error: resolved.error }, 400);
+    const agent = resolved.agent;
 
     // @ファイル参照: 内容をコンテキストへ自動追加 (#2 §3.3)
     const text = await augmentFileRefs(body.text);
@@ -146,7 +157,7 @@ export function registerMessageRoutes(app: Hono): void {
         textLength: text.length,
         parts: parts.length,
         model: model ?? 'default',
-        agent: body.agent ?? 'build',
+        agent,
       }),
     );
     const { data, error, unreachable } = await callOpencode(() =>
@@ -155,7 +166,7 @@ export function registerMessageRoutes(app: Hono): void {
         body: {
           parts,
           model,
-          agent: body.agent,
+          agent,
         },
         query: withDirectory(),
       }),

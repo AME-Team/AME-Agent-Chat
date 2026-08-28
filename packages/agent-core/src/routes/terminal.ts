@@ -210,6 +210,8 @@ async function runShell(
   const exec = callOpencode(() =>
     api.session.shell({
       path: { id },
+      // ターミナル実行も !Bash と同様に build 固定 (選択中エージェントの権限に依存させない)。
+      // docs の「!Bash / ターミナルはエージェントの権限とは別にサンドボックスで実行」と整合 (Issue #72)
       body: { agent: 'build', command },
       query,
     }),

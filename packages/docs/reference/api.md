@@ -44,6 +44,12 @@
 | GET      | `/api/files?q=`               | `@` 参照用のファイル検索                               |
 | GET      | `/api/ogp?url=`               | OGP リンクプレビュー（SSRF 対策付き）                  |
 
+::: info POST /api/sessions/:id/messages — `agent` フィールド (Issue #72)
+
+- 通常のメッセージ送信（プロンプト）では `agent`（エージェント名）がそのまま OpenCode へ渡されます。未指定 / `null` は既定 `build`、空文字・非文字列は 400 で拒否されます。
+- `!` で始まる Bash 実行（`session.shell`）とターミナル API では、PLAN モード等の選択中エージェントに依存しないよう **`agent` 指定は無視され常に `build`** で実行されます（Issue #72 以降の意図的な変更）。カスタムエージェント名を shell 要求に渡していたクライアントは挙動が変わります。
+  :::
+
 ## イベント（SSE）
 
 | メソッド | パス          | 説明                                                                                                                                           |
