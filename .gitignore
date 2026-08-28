@@ -32,6 +32,10 @@ pnpm-debug.log*
 # ユーザー固有のレビュー設定 (環境/端末依存・本人のみ対象)
 .ame-review/config.user.json
 
+# ローカル専用の opencode 設定 (開発者の個人設定。リポジトリ既定は opencode.jsonc を参照)
+# ※ 例: 承認プロンプト無効化などの個人設定をコミットせず適用するためのローカル config
+.opencode/opencode.json
+
 # IDE/MCP tool state
 .serena/
 
