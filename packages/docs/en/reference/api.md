@@ -44,6 +44,12 @@ The APIs used by the frontend. All of them go through Agent Core (BFF); from the
 | GET    | `/api/files?q=`               | File search for `@` references                        |
 | GET    | `/api/ogp?url=`               | OGP link preview (with SSRF protection)               |
 
+::: info POST /api/sessions/:id/messages — `agent` field (Issue #72)
+
+- For regular message sends (prompt), `agent` (agent name) is passed through to OpenCode as-is. If omitted / `null`, the default `build` is used; an empty string or non-string is rejected with 400.
+- For `!`-prefixed Bash execution (`session.shell`) and the terminal API, the `agent` field is **ignored and always `build`** is used, so that behavior does not depend on the currently selected agent (e.g. PLAN mode). This is an intentional change since Issue #72; clients that passed a custom agent name to shell requests will see different behavior.
+  :::
+
 ## Events (SSE)
 
 | Method | Path          | Description                                                                                                                                   |
