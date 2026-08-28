@@ -25,6 +25,8 @@ const ja: Dict = {
   'chat.sendInterrupted': '送信を中断しました (セッションが切り替わりました)',
   'mode.build': 'Build',
   'mode.plan': 'Plan',
+  // 上記 2 つは OpenCode の公式モード名 (TUI と同一表記) を意図的に英字のまま使用する。
+  // ja/en で同一ラベルに揃えており、誤訳や表記揺れを避ける (Issue #72)
   'mode.label': 'エージェントモード',
   'mode.buildDesc': 'BUILD モード: ファイル編集を含む実行',
   'mode.planDesc': 'PLAN モード: 読み取り専用で計画立案',
