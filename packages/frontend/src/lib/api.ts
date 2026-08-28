@@ -3,7 +3,7 @@
  *
  * 開発時は Vite プロキシで /api -> http://localhost:30010 へ中継 (vite.config.ts)。
  */
-import { LOG_DOWNLOAD_ERROR_CODES } from '@ame-agent-chat/shared';
+import { LOG_DOWNLOAD_ERROR_CODES, type AgentMode } from '@ame-agent-chat/shared';
 
 /** API エラー (HTTP ステータス + レスポンス本文を保持) */
 export class ApiError extends Error {
@@ -116,15 +116,20 @@ export const api = {
 
   messages: {
     list: (id: string) => request<unknown[]>(`/api/sessions/${id}/messages`),
+    // agent: UI トグルは build / plan の二択 (Issue #72)。バックエンド (agent-core) は
+    // 任意の非空文字列 (カスタムエージェント名) を許可する拡張点を持つため、将来 UI から
+    // カスタムエージェントを選択可能にする際はこの型を拡張する (契約の分岐は意図的:
+    //   frontend は normalizeAgentMode で build/plan に正規化 / backend は resolveAgent で 400 拒否)。
     send: (
       id: string,
       text: string,
       model?: { providerID: string; modelID: string },
       attachments?: Array<{ mime: string; url: string; filename?: string }>,
+      agent?: AgentMode,
     ) =>
       request(`/api/sessions/${id}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ text, model, attachments }),
+        body: JSON.stringify({ text, model, attachments, agent }),
       }),
     abort: (id: string) =>
       request<{ ok: boolean }>(`/api/sessions/${id}/abort`, { method: 'POST' }),

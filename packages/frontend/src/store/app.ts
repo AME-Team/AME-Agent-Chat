@@ -6,7 +6,15 @@ import { create } from 'zustand';
 import { api, ApiError, type AppSession } from '../lib/api';
 import { tr } from '../lib/i18n';
 import { useUI } from './ui';
-import type { AccentColor, Locale, SessionSortOrder, Theme } from '@ame-agent-chat/shared';
+import {
+  DEFAULT_AGENT_MODE,
+  normalizeAgentMode,
+  type AccentColor,
+  type AgentMode,
+  type Locale,
+  type SessionSortOrder,
+  type Theme,
+} from '@ame-agent-chat/shared';
 
 export interface AppMessage {
   id: string;
@@ -113,6 +121,10 @@ interface AppState {
   messages: AppMessage[];
   /** プロセス可視化 (#20) — セッション内のツール実行イベント */
   tools: ToolEvent[];
+  /** 現在セッションのエージェントモード (Issue #72) — セッション単位で永続化 */
+  agentMode: AgentMode;
+  /** エージェントモードを設定 (現在セッションへ localStorage 永続化) */
+  setAgentMode: (mode: AgentMode) => void;
   loadMessages: (id: string) => Promise<void>;
   sendMessage: (text: string, attachments?: Attachment[]) => Promise<void>;
   /** メッセージ編集 → 以降を上書きで再生成 (要件 #2 §4.4) */
@@ -166,6 +178,25 @@ function entriesToMessages(entries: OCMessageEntry[]): AppMessage[] {
 
 /** OpenCode が通知した user メッセージ ID (楽観的表示と二重表示を防ぐ) */
 const knownUserIds = new Set<string>();
+
+/** エージェントモードの localStorage プレフィックス (セッション単位の永続化 — Issue #72) */
+const AGENT_MODE_PREFIX = 'agentMode:';
+
+function loadAgentMode(sessionId: string): AgentMode {
+  try {
+    return normalizeAgentMode(localStorage.getItem(`${AGENT_MODE_PREFIX}${sessionId}`));
+  } catch {
+    return DEFAULT_AGENT_MODE;
+  }
+}
+
+function saveAgentMode(sessionId: string, mode: AgentMode): void {
+  try {
+    localStorage.setItem(`${AGENT_MODE_PREFIX}${sessionId}`, mode);
+  } catch {
+    /* storage unavailable */
+  }
+}
 
 // touchedSessionIds (送信済みセッション判定 #71) の更新ヘルパー。
 // 追加/削除はこの 2 関数 (と setCurrentDirectory 内の全消去) に集約する。
@@ -409,6 +440,7 @@ export const useApp = create<AppState>((set, get) => ({
       currentId: null,
       messages: [],
       tools: [],
+      agentMode: DEFAULT_AGENT_MODE,
       touchedSessionIds: new Set(),
       messagesLoadingId: null,
       inFlightCreatePromise: null,
@@ -475,6 +507,10 @@ export const useApp = create<AppState>((set, get) => ({
       try {
         const s = await api.sessions.create();
         lastCreatedId = s.id;
+        // 新規セッションは現在のエージェントモードを引き継ぐ (Issue #72):
+        //   - セッション選択中 → 現行セッションのモード (OpenCode のスティッキーなモード切替相当)
+        //   - セッション未選択 → setAgentMode がメモリ上に保持する保留モード
+        const pendingMode = get().agentMode;
         if (get().cwdSwitchCount !== cwdSwitchAtStart && get().currentDirectory !== dirAtStart) {
           // ユーザー切替が発生し、かつ現在ディレクトリが元と異なる (切替→復帰ではない) 場合、
           // 旧ディレクトリ向けの孤児セッションをベストエフォートで削除し、作成されなかった
@@ -484,11 +520,13 @@ export const useApp = create<AppState>((set, get) => ({
           });
           return null;
         }
+        saveAgentMode(s.id, pendingMode);
         set((st) => ({
           sessions: [s, ...st.sessions],
           currentId: s.id,
           messages: [],
           tools: [],
+          agentMode: pendingMode,
           sessionCreateSeq: st.sessionCreateSeq + 1,
         }));
         return s.id;
@@ -514,7 +552,13 @@ export const useApp = create<AppState>((set, get) => ({
   selectSession: async (id) => {
     // messagesLoadingId を同期設定し、loadMessages 起動前の数マイクロ秒 (未読込) でも
     // createSession が当該セッションを誤って流用判定しないようにする (#71)
-    set({ currentId: id, messages: [], tools: [], messagesLoadingId: id });
+    set({
+      currentId: id,
+      messages: [],
+      tools: [],
+      messagesLoadingId: id,
+      agentMode: loadAgentMode(id),
+    });
     await get().loadMessages(id);
   },
 
@@ -522,11 +566,20 @@ export const useApp = create<AppState>((set, get) => ({
     await api.sessions.remove(id);
     unmarkTouched(id);
     sendGenBySession.delete(id);
+    // セッション単位のモード (agentMode) の localStorage キーも掃除する (Gate 1 指摘対応)
+    try {
+      localStorage.removeItem(`${AGENT_MODE_PREFIX}${id}`);
+    } catch {
+      /* storage unavailable */
+    }
     set((st) => ({
       sessions: st.sessions.filter((s) => s.id !== id),
       pinned: st.pinned.filter((p) => p !== id),
       currentId: st.currentId === id ? null : st.currentId,
       messages: st.currentId === id ? [] : st.messages,
+      // 現行セッション削除で未選択に戻る場合はモードも既定へ戻す (次回送信に古いモードが
+      // 残らないようにする — Gate 1 指摘対応)。非現行の削除では現行モードを維持する
+      agentMode: st.currentId === id ? DEFAULT_AGENT_MODE : st.agentMode,
     }));
     localStorage.setItem('pinned', JSON.stringify(get().pinned));
   },
@@ -544,7 +597,17 @@ export const useApp = create<AppState>((set, get) => ({
     await api.sessions.update(copy.id, `${copy.title} (copy)`);
     const renamed = await api.sessions.list();
     const session = renamed.find((s) => s.id === copy.id) ?? copy;
-    set((st) => ({ sessions: [session, ...st.sessions], currentId: session.id, messages: [] }));
+    // 複製元セッション (id) のエージェントモードを複製先へ引き継ぐ (Issue #72)。
+    // 現行セッションのモード (get().agentMode) ではなく対象セッションの永続化済みモードを
+    // 読む (非現行セッションの複製時も正しく引き継ぐため — Gate 1 指摘対応)
+    const copiedMode = loadAgentMode(id);
+    saveAgentMode(session.id, copiedMode);
+    set((st) => ({
+      sessions: [session, ...st.sessions],
+      currentId: session.id,
+      messages: [],
+      agentMode: copiedMode,
+    }));
     await get().loadMessages(session.id);
     return session.id;
   },
@@ -657,6 +720,21 @@ export const useApp = create<AppState>((set, get) => ({
 
   tools: [],
 
+  agentMode: DEFAULT_AGENT_MODE,
+
+  setAgentMode: (mode) => {
+    const id = get().currentId;
+    if (id) {
+      saveAgentMode(id, mode);
+    } else {
+      // セッション未選択時はメモリ上の「次に使うセッション向け保留モード」として保持し、
+      // createSession が新規セッションへ引き継ぐ (Issue #72)。
+      // 既存セッションを選択した場合は各セッションの保存済みモードが優先される
+      // (セッション単位の永続化契約 — Gate 1 指摘への明文化)。
+    }
+    set({ agentMode: mode });
+  },
+
   loadMessages: async (id) => {
     const mySeq = ++messagesLoadSeq;
     // 読込開始時点の「このセッションの」送信世代。読込の完了が遅い間に同セッションへの
@@ -688,6 +766,9 @@ export const useApp = create<AppState>((set, get) => ({
 
   sendMessage: async (text, attachments = []) => {
     const { currentId, createSession, messages } = get();
+    // 送信開始時点のエージェントモードを捕捉する (Issue #72)。新規セッション作成の await 中に
+    // モードが変動しても、送信したメッセージとセッションへ永続化されるモードを一致させる
+    const modeForSend = get().agentMode;
     let id = currentId;
     if (!id) {
       try {
@@ -707,6 +788,17 @@ export const useApp = create<AppState>((set, get) => ({
       } catch {
         // 作成失敗時は createSession がエラートーストを表示済み → 送信を中断
         return;
+      }
+      // 新規セッション作成時は createSession が開始時点のモードを永続化するため、
+      // 送信開始時点の捕捉値 (modeForSend) とズレた場合に補正して一貫させる
+      // (既存セッションを選択済みの場合は現在値 = 捕捉値で no-op)。
+      // ※ セッション作成 (await) 中にユーザーがモードを切り替えた場合、その切替は
+      //   送信メッセージと永続化モードの一貫性を優先して破棄される (UI も捕捉値へ戻る)
+      // id が null のまま到達した場合 (孤児整理で null 返却→送信中断経路等) は補正しない
+      // (saveAgentMode(null, ...) で 'agentMode:null' を残さない — Gate 1 指摘対応)
+      if (id && get().agentMode !== modeForSend) {
+        saveAgentMode(id, modeForSend);
+        set({ agentMode: modeForSend });
       }
     }
 
@@ -768,7 +860,7 @@ export const useApp = create<AppState>((set, get) => ({
     // この送信前のメッセージ ID 集合で「SSE 経由で応答が届いたか」を判定する
     const preMessageIds = new Set(messages.map((m) => m.id));
     try {
-      await api.messages.send(id, text, get().selectedModel ?? undefined, attachments);
+      await api.messages.send(id, text, get().selectedModel ?? undefined, attachments, modeForSend);
       // サーバ応答の完了 (resolve) を送信成功とみなし、後続の SSE/再同期の失敗に
       // 影響されないよう送信済みとして扱う (#71 の連打防護の判定用)。
       // await 中にセッション切替が起きた場合は markTouched 内部の currentId ガードで
@@ -848,7 +940,16 @@ export const useApp = create<AppState>((set, get) => ({
     // 編集メッセージ以降を切り捨てて新しい内容を送信
     const idx = messages.findIndex((m) => m.id === messageId);
     set((st) => ({ messages: [...st.messages.slice(0, idx), { ...target, text: newText }] }));
-    await api.messages.send(currentId, newText, get().selectedModel ?? undefined);
+    // 再生成も現行セッションのエージェントモードで送信する (セッション単位のモード契約 —
+    // Issue #72)。元メッセージ生成時とモードが異なる場合に再生成内容の意味が変わり得るが、
+    // これは「セッションの現在モード」が再生成にも適用される意図的な挙動
+    await api.messages.send(
+      currentId,
+      newText,
+      get().selectedModel ?? undefined,
+      undefined,
+      get().agentMode,
+    );
     // バックエンドと状態を再同期 (revert 不可のケースでも旧メッセージが復活しないように)
     await get().loadMessages(currentId);
   },

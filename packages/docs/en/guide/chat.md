@@ -15,6 +15,19 @@ This page explains the input, display and editing features in detail.
 - **Input history**: press **↑ / ↓** at the start/end of the input box to recall past inputs (up to 20 entries per session).
 - **Character and token estimate**: the character count and an estimated token count are shown under the input box (Japanese is estimated at ~1.5 chars/token, others at ~4 chars/token).
 
+### Agent mode (PLAN / BUILD)
+
+A toggle at the bottom-left of the input box switches the **agent mode** (equivalent to OpenCode's PLAN / BUILD modes).
+
+- **BUILD mode**: the default. The agent performs actual work, including reading/editing files and running commands.
+- **PLAN mode**: read-only planning. The agent investigates the codebase and produces an implementation plan, but does not modify files through its own operations. An exception is an explicit `!Bash` / terminal command, which runs in the sandbox with `build` permissions and can modify files depending on the command.
+
+The mode is saved per session and restored when you switch back to that session. It is passed to OpenCode as the agent name (`build` / `plan`) when sending a message.
+
+::: info About PLAN mode being read-only
+PLAN mode's "read-only" behavior relies on the `plan` agent definition that ships with OpenCode (which denies `edit`). If the `plan` agent is overridden or removed in your OpenCode configuration, the read-only guarantee follows that definition. `!Bash` / the terminal run in the sandbox regardless of the selected agent's permissions.
+:::
+
 ## Special notation
 
 The following special notation is available in chat input.

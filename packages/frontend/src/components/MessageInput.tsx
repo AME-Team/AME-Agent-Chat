@@ -4,8 +4,8 @@
  * 下書き保持(セッション単位)・入力履歴(↑↓)・スラッシュコマンドサジェスト。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Paperclip, Send, Square } from 'lucide-react';
-import { CHAT_WIDTH_CLASSES } from '@ame-agent-chat/shared';
+import { ClipboardList, Paperclip, Send, Square, Wrench, type LucideIcon } from 'lucide-react';
+import { AGENT_MODES, CHAT_WIDTH_CLASSES, type AgentMode } from '@ame-agent-chat/shared';
 import { useI18n } from '../lib/i18n';
 import { useApp } from '../store/app';
 import { useUI } from '../store/ui';
@@ -13,6 +13,12 @@ import { cn } from '../lib/cn';
 import { CommandPalette } from './CommandPalette';
 import { executeCommand, matchCommands, parseCommand } from '../lib/commands';
 import { api } from '../lib/api';
+
+/** モード別アイコン (lucide は shared へ持ち込まないためフロント側で対応付け — Issue #72) */
+const MODE_ICONS: Record<AgentMode, LucideIcon> = {
+  build: Wrench,
+  plan: ClipboardList,
+};
 
 const DRAFT_PREFIX = 'draft:';
 const HIST_PREFIX = 'history:';
@@ -68,6 +74,8 @@ export function MessageInput() {
   const sendMessage = useApp((s) => s.sendMessage);
   const abort = useApp((s) => s.abort);
   const currentId = useApp((s) => s.currentId);
+  const agentMode = useApp((s) => s.agentMode);
+  const setAgentMode = useApp((s) => s.setAgentMode);
   const sessionCreateSeq = useApp((s) => s.sessionCreateSeq);
   const chatWidth = useUI((s) => s.chatWidth);
   const terminalOpen = useUI((s) => s.terminalOpen);
@@ -361,7 +369,36 @@ export function MessageInput() {
             </button>
           )}
         </div>
-        <div className="mt-1 flex justify-end gap-2">
+        <div className="mt-1 flex items-center justify-between gap-2">
+          {/* エージェントモード (PLAN / BUILD — Issue #72): セッション単位で切替 */}
+          <div
+            className="flex items-center rounded-md border border-gray-200 p-1 dark:border-gray-700"
+            role="group"
+            aria-label={t('mode.label')}
+          >
+            {AGENT_MODES.map(({ id, labelKey, descKey }) => {
+              const Icon = MODE_ICONS[id];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setAgentMode(id)}
+                  aria-pressed={agentMode === id}
+                  aria-label={t(labelKey)}
+                  title={t(descKey)}
+                  className={cn(
+                    'flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors duration-150',
+                    agentMode === id
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800',
+                  )}
+                >
+                  <Icon className="size-4" />
+                  {t(labelKey)}
+                </button>
+              );
+            })}
+          </div>
           <span className="text-xs text-gray-400">
             {text.length} chars · ~{tokenEstimate} tokens
           </span>

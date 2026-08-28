@@ -16,6 +16,8 @@ import { useApp, resetAppModuleTestState } from '../src/store/app';
 
 // store はモジュールシングルトンのため、テスト間で状態をリセットする
 beforeEach(() => {
+  // セッション単位の永続化 (agentMode 等) が前テストから漏れないように localStorage もリセットする
+  localStorage.clear();
   useApp.setState({
     currentId: null,
     messages: [],
@@ -26,6 +28,7 @@ beforeEach(() => {
     inFlightCreatePromise: null,
     currentDirectory: '',
     cwdSwitchCount: 0,
+    agentMode: 'build',
   });
   // モジュールレベルのテスト参照状態もリセットする (#71)
   resetAppModuleTestState();
@@ -538,4 +541,187 @@ test('sendMessage: currentId が無い場合も作成後に送信まで到達す
 
   assert.equal(send.mock.callCount(), 1, 'created したセッションへ送信が実行されること');
   assert.equal(useApp.getState().messages.length, 1, '楽観的メッセージが残ること');
+});
+
+// ---------------------------------------------------------------------------
+// エージェントモード (PLAN / BUILD — Issue #72)
+// ---------------------------------------------------------------------------
+
+test('sendMessage: 現在セッションのエージェントモードが送信引数に含まれる (Issue #72)', async () => {
+  mockSessionApi();
+  const send = mock.method(api.messages, 'send', async () => undefined);
+  useApp.setState({ currentId: 'ses_mode', messages: [], sessions: [session('ses_mode')] });
+
+  useApp.getState().setAgentMode('plan');
+  await useApp.getState().sendMessage('hello');
+
+  assert.equal(send.mock.callCount(), 1);
+  const args = send.mock.calls[0].arguments as unknown[];
+  assert.equal(args[4], 'plan', 'agent が送信に含まれること');
+});
+
+test('deleteSession: 現行セッション削除時はモードを既定へ戻す (Issue #72)', async () => {
+  mock.method(api.sessions, 'remove', async () => ({ ok: true }));
+  useApp.setState({
+    currentId: 'ses_del',
+    messages: [{ id: 'm1', role: 'user', text: 'hello' }],
+    sessions: [session('ses_del')],
+  });
+
+  useApp.getState().setAgentMode('plan');
+  await useApp.getState().deleteSession('ses_del');
+
+  assert.equal(useApp.getState().currentId, null, '削除で未選択に戻ること');
+  assert.equal(useApp.getState().agentMode, 'build', 'モードも既定 (build) に戻ること');
+});
+
+test('createSession: 現行セッションのモードを新規セッションへ引き継ぐ (Issue #72)', async () => {
+  const create = mockCreate('ses_new');
+  mock.method(api.messages, 'list', async () => []);
+  mock.method(api.messages, 'send', async () => undefined);
+  useApp.setState({
+    currentId: 'ses_cur',
+    messages: [{ id: 'm1', role: 'user', text: 'hello' }],
+    sessions: [session('ses_cur')],
+  });
+
+  useApp.getState().setAgentMode('plan');
+  assert.equal(await useApp.getState().createSession(), 'ses_new');
+  assert.equal(create.mock.callCount(), 1);
+  assert.equal(
+    useApp.getState().agentMode,
+    'plan',
+    '新規セッションが現行モード (plan) を引き継ぐこと',
+  );
+
+  await useApp.getState().selectSession('ses_new');
+  assert.equal(useApp.getState().agentMode, 'plan', '新規セッションのモードが永続化されていること');
+});
+
+test('sendMessage: セッション未選択でも保留中のモードで新規セッションを作成し送信する (Issue #72)', async () => {
+  mockSessionApi();
+  const send = mock.method(api.messages, 'send', async () => undefined);
+  useApp.setState({ currentId: null, messages: [], sessions: [] });
+
+  // セッション未選択 (currentId null) のままモードを plan に切り替えて送信
+  useApp.getState().setAgentMode('plan');
+  await useApp.getState().sendMessage('hello');
+
+  const args = send.mock.calls[0].arguments as unknown[];
+  assert.equal(args[4], 'plan', '未選択時に選んだモード (plan) で送信されること');
+  assert.equal(useApp.getState().agentMode, 'plan', '新規セッションのモードに引き継がれること');
+
+  // 新規セッション (ses_test) のモードが localStorage に永続化されていること
+  useApp.setState({ sessions: [session('ses_other'), session('ses_test')] });
+  await useApp.getState().selectSession('ses_other');
+  assert.equal(useApp.getState().agentMode, 'build', '別セッションは build');
+  await useApp.getState().selectSession('ses_test');
+  assert.equal(useApp.getState().agentMode, 'plan', '新規セッションのモードが永続化されていること');
+});
+
+test('sendMessage: 既定は build で送信される (Issue #72)', async () => {
+  mockSessionApi();
+  const send = mock.method(api.messages, 'send', async () => undefined);
+  useApp.setState({ currentId: 'ses_mode', messages: [], sessions: [session('ses_mode')] });
+
+  await useApp.getState().sendMessage('hello');
+
+  const args = send.mock.calls[0].arguments as unknown[];
+  assert.equal(args[4], 'build', '既定の agent は build であること');
+});
+
+test('setAgentMode: セッション未選択時の保留モードは既存セッションの保存モードを上書きしない (Issue #72)', async () => {
+  mockSessionApi();
+  useApp.setState({
+    currentId: null,
+    messages: [],
+    sessions: [session('ses_existing')],
+  });
+
+  // 未選択時に plan へ切り替え (保留モード)
+  useApp.getState().setAgentMode('plan');
+  assert.equal(useApp.getState().agentMode, 'plan');
+
+  // 既存セッションを選択 → 各セッションの保存済みモード (build) が優先される
+  await useApp.getState().selectSession('ses_existing');
+  assert.equal(useApp.getState().agentMode, 'build', '既存セッションは自身の保存モードを復元する');
+});
+
+test('setAgentMode: セッション単位で永続化され切替で復元される (Issue #72)', async () => {
+  mockSessionApi();
+  useApp.setState({
+    currentId: null,
+    messages: [],
+    sessions: [session('ses_a'), session('ses_b')],
+  });
+
+  await useApp.getState().selectSession('ses_a');
+  assert.equal(useApp.getState().agentMode, 'build', '既定は build であること');
+
+  useApp.getState().setAgentMode('plan');
+  assert.equal(useApp.getState().agentMode, 'plan');
+
+  await useApp.getState().selectSession('ses_b');
+  assert.equal(useApp.getState().agentMode, 'build', '別セッションは既定の build であること');
+
+  await useApp.getState().selectSession('ses_a');
+  assert.equal(useApp.getState().agentMode, 'plan', '元のセッションに戻ると plan が復元されること');
+});
+
+test('duplicateSession: 元セッションのエージェントモードを複製先へ引き継ぐ (Issue #72)', async () => {
+  mock.method(api.messages, 'list', async () => []);
+  mock.method(api.sessions, 'fork', async () => session('ses_copy'));
+  mock.method(api.sessions, 'update', async (id, title) => session(id, title));
+  mock.method(api.sessions, 'list', async () => [session('ses_copy', 'src (copy)')]);
+  useApp.setState({
+    currentId: 'ses_src',
+    messages: [],
+    sessions: [session('ses_src')],
+  });
+
+  useApp.getState().setAgentMode('plan');
+  const newId = await useApp.getState().duplicateSession('ses_src');
+
+  assert.equal(newId, 'ses_copy');
+  assert.equal(useApp.getState().agentMode, 'plan', '複製先も plan を引き継ぐこと');
+
+  // 別セッションへ切替後、複製先へ戻っても plan が復元される (localStorage 永続化済み)
+  await useApp.getState().selectSession('ses_src');
+  assert.equal(useApp.getState().agentMode, 'plan', '元セッションは plan のまま');
+  await useApp.getState().selectSession('ses_copy');
+  assert.equal(
+    useApp.getState().agentMode,
+    'plan',
+    '複製先のモードが localStorage に保存されること',
+  );
+});
+
+test('duplicateSession: 非現行セッションを複製しても対象セッションのモードを引き継ぐ (Issue #72)', async () => {
+  mock.method(api.messages, 'list', async () => []);
+  mock.method(api.sessions, 'fork', async () => session('ses_copy'));
+  mock.method(api.sessions, 'update', async (id, title) => session(id, title));
+  mock.method(api.sessions, 'list', async () => [session('ses_copy', 'src (copy)')]);
+  useApp.setState({
+    currentId: null,
+    messages: [],
+    sessions: [session('ses_src'), session('ses_cur')],
+  });
+
+  // 複製元 (ses_src) を plan に、現行セッション (ses_cur) は build のままにする
+  await useApp.getState().selectSession('ses_src');
+  useApp.getState().setAgentMode('plan');
+  await useApp.getState().selectSession('ses_cur');
+  assert.equal(useApp.getState().agentMode, 'build', '現行セッションは build のまま');
+
+  // 非現行の ses_src を複製 → 現行 (build) ではなく対象 (plan) を引き継ぐこと
+  const newId = await useApp.getState().duplicateSession('ses_src');
+  assert.equal(newId, 'ses_copy');
+  assert.equal(useApp.getState().agentMode, 'plan', '複製先は対象セッション (plan) を引き継ぐこと');
+
+  await useApp.getState().selectSession('ses_copy');
+  assert.equal(
+    useApp.getState().agentMode,
+    'plan',
+    '複製先のモードが localStorage に永続化されること',
+  );
 });
