@@ -97,8 +97,8 @@ repos:
   # オフライン/制限環境では `ame-ai-reviewer init --python <path>` を使うと
   # `language: system` で生成され、事前に導入した Python で実行される。
   # 供給チェーン対策として wheel は `#sha256=` で内容を固定する (Issue #84)。
-  # wheel は tarminjapan アカウント (旧ホスト) の Releases から配布され、ワークフローは
-  # AME-Team 組織 (移行後) の reusable workflow を参照する。配布元の違いは意図的 (後方互換)。
+  # wheel は AME-Team 組織の Releases から配布され、hub の最新リリースへは `ame-ai-reviewer sync`
+  # で追随する (CI のラッパは移動メジャータグ v0 を参照)。
   # 各フックの additional_dependencies は常に同一に保つこと (init 生成時は単一の
   # 定義から全フックへ一律展開される。手動編集時は 3 フックすべてを揃えること)。
   # =========================================================================
@@ -109,7 +109,7 @@ repos:
         entry: python -m ame_ai_review_system.skip_guard
         language: python
         additional_dependencies: &ame-wheel-dep
-          - ame_ai_review_system @ https://github.com/tarminjapan/AME-AI-Review-System/releases/download/v0.2.5/ame_ai_review_system-0.2.5-py3-none-any.whl#sha256=4b7bd817d3b30aafc4531808f6810b7f71c09d4b8335f20907439589e19770f0
+          - ame_ai_review_system @ https://github.com/AME-Team/AME-AI-Review-System/releases/download/v0.2.16/ame_ai_review_system-0.2.16-py3-none-any.whl#sha256=76b05b56d6b10d68601b5e9aa20689079b26bdcc7149ab39ab4b63909c8a2c00
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
