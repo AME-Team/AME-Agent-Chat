@@ -80,6 +80,10 @@ Frontend(51730)/Gatekeeper(58780) はホスト起動。コンテナは Agent Cor
 
 - pre-commit（Gate 1）と PR（Gate 2）の二重品質ゲート。
 - PR で `/request-review` コメントで AI レビュー実行。
+- CI ラッパ（`review_command.yml` / `review_reply.yml`）は hub（`AME-Team/AME-AI-Review-System`）の移動メジャータグ `v0` を参照し、リリースごとに自動追随するため配布先での更新作業は不要。不変性が必要な場合のみ `ame-ai-reviewer init --ref v0.2.16` のようにリリースタグへ固定する（その場合は手作業の更新が必要）。
+- Gate 1 の wheel は `.pre-commit-config.yaml` に `#sha256=` 付きで固定する（現在 v0.2.16）。**CI ラッパと違い自動では追随しない**ため、`ame-ai-reviewer sync` で更新する。差分確認は `sync --check`（差分あり exit 1 / 判定不能 exit 2）。リリース直後は CI とローカルの版がずれ得る。
+- ラッパの `checks: read` は Gate 2 が PR の check runs を読むための権限（hub の Issue #140）。欠けると外部 CI ゲートが無言で無効化される。
+- `review_reply.yml` に前置 `if` は置かない（bot 自己除外・コマンド除外・`@ame-ai-reviewer` 宛て判定は upstream が `comment_user` / `comment_body` 入力に対して行う）。`review_command.yml` のジョブ `if`（PR 判定とコマンド判定）は維持する。
 - 詳細は `.ame-review/`・`.claude/skills/review-round/SKILL.md`。
 - 設定: `.ame-review/config.json`
 - **Python/Shell ソース導入時（S2・要件 #3.3.1）は、`.pre-commit-config.yaml` に ruff/mypy/shellcheck を再導入し、`.github/workflows/ci.yml` に該当ステップを追加すること。**
