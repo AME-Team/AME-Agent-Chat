@@ -25,9 +25,8 @@ pnpm-debug.log*
 !.vscode/extensions.json
 .idea/
 
-# review system sidecar deps
-.ame-review/engines-ts/node_modules/
-.ame-review/engines-ts/package-lock.json
+# review system sidecar (インストール済み wheel からフックが都度展開する生成物)
+.ame-review/engines-ts/
 
 # ユーザー固有のレビュー設定 (環境/端末依存・本人のみ対象)
 .ame-review/config.user.json
